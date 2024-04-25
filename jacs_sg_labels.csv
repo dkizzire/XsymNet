@@ -1,0 +1,546 @@
+sg_number,sg_long_names,sg_short_names,sg_origin
+227,F 41/d -3 2/m,F d-3m,origin choice 2
+216,F -4 3 m,F -43m,origin choice 1
+141,I 41/a 2/m 2/d,I 41/amd,origin choice 2
+166,R -3 2/m,R -3m,hexagonal axes
+196,F 2 3,F 23,origin choice 1
+119,I -4 m 2,I -4m2,origin choice 1
+109,I 41 m d,I 41md,origin choice 1
+122,I -4 2 d,I -42d,origin choice 1
+88,I 41/a,I 41/a,origin choice 2
+74,I 21/m 21/m 21/a,I mma,origin choice 1
+70,F 2/d 2/d 2/d,F ddd,origin choice 2
+98,I 41 2 2,I 4122,origin choice 1
+160,R 3 m,R 3m,hexagonal axes
+148,R -3,R -3,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+82,I -4,I -4,origin choice 1
+44,I m m 2,I mm2,origin choice 1
+46,I m a 2,I ma2,origin choice 1
+43,F d d 2,F dd2,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+80,I 41,I 41,origin choice 1
+24,I 21 21 21,I 212121,origin choice 1
+22,F 2 2 2,F 222,origin choice 1
+146,R 3,R 3,hexagonal axes
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+115,P -4 m 2,P -4m2,origin choice 1
+118,P -4 n 2,P -4n2,origin choice 1
+51,P 21/m 2/m 2/a,P mma,origin choice 1
+53,P 2/m 2/n 21/a,P mna,origin choice 1
+52,P 2/n 21/n 2/a,P nna,origin choice 1
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+91,P 41 2 2,P 4122,origin choice 1
+96,P 43 21 2,P 43212,origin choice 1
+81,P -4,P -4,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+34,P n n 2,P nn2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+33,P n a 21,P na21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+76,P 41,P 41,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+21,C 2 2 2,C 222,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+1,P 1,P 1,origin choice 1
+166,R -3 2/m,R -3m,hexagonal axes
+167,R -3 2/c,R -3c,hexagonal axes
+167,R -3 2/c,R -3c,hexagonal axes
+166,R -3 2/m,R -3m,hexagonal axes
+160,R 3 m,R 3m,hexagonal axes
+161,R 3 c,R 3c,hexagonal axes
+148,R -3,R -3,hexagonal axes
+148,R -3,R -3,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+146,R 3,R 3,hexagonal axes
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+51,P 21/m 2/m 2/a,P mma,origin choice 1
+59,P 21/m 21/m 2/n,P mmn,origin choice 2
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+53,P 2/m 2/n 21/a,P mna,origin choice 1
+53,P 2/m 2/n 21/a,P mna,origin choice 1
+58,P 21/n 21/n 2/m,P nnm,origin choice 1
+60,P 21/b 2/c 21/n,P bcn,origin choice 1
+52,P 2/n 21/n 2/a,P nna,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+33,P n a 21,P na21,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+34,P n n 2,P nn2,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+1,P 1,P 1,origin choice 1
+63,C 2/m 2/c 21/m,C mcm,origin choice 1
+64,C 2/m 2/c 21/a,C mca,origin choice 1
+64,C 2/m 2/c 21/a,C mca,origin choice 1
+63,C 2/m 2/c 21/m,C mcm,origin choice 1
+38,A m m 2,A mm2,origin choice 1
+39,A b m 2,A em2,origin choice 1
+36,C m c 21,C mc21,origin choice 1
+36,C m c 21,C mc21,origin choice 1
+40,A m a 2,A ma2,origin choice 1
+41,A b a 2,A ea2,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+115,P -4 m 2,P -4m2,origin choice 1
+116,P -4 c 2,P -4c2,origin choice 1
+51,P 21/m 2/m 2/a,P mma,origin choice 1
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+54,P 21/c 2/c 2/a,P cca,origin choice 1
+55,P 21/b 21/a 2/m,P bam,origin choice 1
+81,P -4,P -4,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+27,P c c 2,P cc2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+32,P b a 2,P ba2,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+21,C 2 2 2,C 222,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+121,I -4 2 m,I -42m,origin choice 1
+122,I -4 2 d,I -42d,origin choice 1
+121,I -4 2 m,I -42m,origin choice 1
+122,I -4 2 d,I -42d,origin choice 1
+82,I -4,I -4,origin choice 1
+82,I -4,I -4,origin choice 1
+42,F m m 2,F mm2,origin choice 1
+43,F d d 2,F dd2,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+23,I 2 2 2,I 222,origin choice 1
+24,I 21 21 21,I 212121,origin choice 1
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+215,P -4 3 m,P -43m,origin choice 1
+213,P 41 3 2,P 4132,origin choice 1
+166,R -3 2/m,R -3m,hexagonal axes
+195,P 2 3,P 23,origin choice 1
+198,P 21 3,P 213,origin choice 1
+111,P -4 2 m,P -42m,origin choice 1
+113,P -4 21 m,P -421m,origin choice 1
+91,P 41 2 2,P 4122,origin choice 1
+96,P 43 21 2,P 43212,origin choice 1
+160,R 3 m,R 3m,hexagonal axes
+148,R -3,R -3,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+81,P -4,P -4,origin choice 1
+35,C m m 2,C mm2,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+76,P 41,P 41,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+16,P 2 2 2,P 222,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+146,R 3,R 3,hexagonal axes
+8,C 1 m 1,C m,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+1,P 1,P 1,origin choice 1
+115,P -4 m 2,P -4m2,origin choice 1
+117,P -4 b 2,P -4b2,origin choice 1
+91,P 41 2 2,P 4122,origin choice 1
+92,P 41 21 2,P 41212,origin choice 1
+81,P -4,P -4,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+32,P b a 2,P ba2,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+76,P 41,P 41,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+21,C 2 2 2,C 222,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+51,P 21/m 2/m 2/a,P mma,origin choice 1
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+59,P 21/m 21/m 2/n,P mmn,origin choice 2
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+54,P 21/c 2/c 2/a,P cca,origin choice 1
+55,P 21/b 21/a 2/m,P bam,origin choice 1
+56,P 21/c 21/c 2/n,P ccn,origin choice 1
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+61,P 21/b 21/c 21/a,P bca,origin choice 1
+53,P 2/m 2/n 21/a,P mna,origin choice 1
+60,P 21/b 2/c 21/n,P bcn,origin choice 1
+60,P 21/b 2/c 21/n,P bcn,origin choice 1
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+52,P 2/n 21/n 2/a,P nna,origin choice 1
+58,P 21/n 21/n 2/m,P nnm,origin choice 1
+54,P 21/c 2/c 2/a,P cca,origin choice 1
+55,P 21/b 21/a 2/m,P bam,origin choice 1
+56,P 21/c 21/c 2/n,P ccn,origin choice 1
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+51,P 21/m 2/m 2/a,P mma,origin choice 1
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+59,P 21/m 21/m 2/n,P mmn,origin choice 2
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+60,P 21/b 2/c 21/n,P bcn,origin choice 1
+62,P 21/n 21/m 21/a,P nma,origin choice 1
+52,P 2/n 21/n 2/a,P nna,origin choice 1
+58,P 21/n 21/n 2/m,P nnm,origin choice 1
+57,P 2/b 21/c 21/m,P bcm,origin choice 1
+61,P 21/b 21/c 21/a,P bca,origin choice 1
+53,P 2/m 2/n 21/a,P mna,origin choice 1
+60,P 21/b 2/c 21/n,P bcn,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+27,P c c 2,P cc2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+33,P n a 21,P na21,origin choice 1
+33,P n a 21,P na21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+32,P b a 2,P ba2,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+33,P n a 21,P na21,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+34,P n n 2,P nn2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+33,P n a 21,P na21,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+1,P 1,P 1,origin choice 1
+38,A m m 2,A mm2,origin choice 1
+39,A b m 2,A em2,origin choice 1
+40,A m a 2,A ma2,origin choice 1
+41,A b a 2,A ea2,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+111,P -4 2 m,P -42m,origin choice 1
+112,P -4 2 c,P -42c,origin choice 1
+111,P -4 2 m,P -42m,origin choice 1
+112,P -4 2 c,P -42c,origin choice 1
+113,P -4 21 m,P -421m,origin choice 1
+114,P -4 21 c,P -421c,origin choice 1
+113,P -4 21 m,P -421m,origin choice 1
+114,P -4 21 c,P -421c,origin choice 1
+81,P -4,P -4,origin choice 1
+81,P -4,P -4,origin choice 1
+35,C m m 2,C mm2,origin choice 1
+36,C m c 21,C mc21,origin choice 1
+37,C c c 2,C cc2,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+16,P 2 2 2,P 222,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+17,P 2 2 21,P 2221,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+18,P 21 21 2,P 21212,origin choice 1
+19,P 21 21 21,P 212121,origin choice 1
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+1,P 1,P 1,origin choice 1
+216,F -4 3 m,F -43m,origin choice 1
+219,F -4 3 c,F -43c,origin choice 1
+166,R -3 2/m,R -3m,hexagonal axes
+167,R -3 2/c,R -3c,hexagonal axes
+167,R -3 2/c,R -3c,hexagonal axes
+166,R -3 2/m,R -3m,hexagonal axes
+196,F 2 3,F 23,origin choice 1
+119,I -4 m 2,I -4m2,origin choice 1
+120,I -4 c 2,I -4c2,origin choice 1
+160,R 3 m,R 3m,hexagonal axes
+161,R 3 c,R 3c,hexagonal axes
+148,R -3,R -3,hexagonal axes
+148,R -3,R -3,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+155,R 3 2,R 32,hexagonal axes
+82,I -4,I -4,origin choice 1
+44,I m m 2,I mm2,origin choice 1
+46,I m a 2,I ma2,origin choice 1
+45,I b a 2,I ba2,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+15,C 1 2/c 1,C 2/c,origin choice 1
+12,C 1 2/m 1,C 2/m,origin choice 1
+22,F 2 2 2,F 222,origin choice 1
+146,R 3,R 3,hexagonal axes
+8,C 1 m 1,C m,origin choice 1
+9,C 1 c 1,C c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
+115,P -4 m 2,P -4m2,origin choice 1
+116,P -4 c 2,P -4c2,origin choice 1
+115,P -4 m 2,P -4m2,origin choice 1
+116,P -4 c 2,P -4c2,origin choice 1
+117,P -4 b 2,P -4b2,origin choice 1
+118,P -4 n 2,P -4n2,origin choice 1
+117,P -4 b 2,P -4b2,origin choice 1
+118,P -4 n 2,P -4n2,origin choice 1
+81,P -4,P -4,origin choice 1
+81,P -4,P -4,origin choice 1
+25,P m m 2,P mm2,origin choice 1
+26,P m c 21,P mc21,origin choice 1
+28,P m a 2,P ma2,origin choice 1
+31,P m n 21,P mn21,origin choice 1
+27,P c c 2,P cc2,origin choice 1
+30,P n c 2,P nc2,origin choice 1
+29,P c a 21,P ca21,origin choice 1
+32,P b a 2,P ba2,origin choice 1
+33,P n a 21,P na21,origin choice 1
+34,P n n 2,P nn2,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+10,P 1 2/m 1,P 2/m,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+11,P 1 21/m 1,P 21/m,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+13,P 1 2/c 1,P 2/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+14,P 1 21/c 1,P 21/c,origin choice 1
+21,C 2 2 2,C 222,origin choice 1
+20,C 2 2 21,C 2221,origin choice 1
+21,C 2 2 2,C 222,origin choice 1
+6,P 1 m 1,P m,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+7,P 1 c 1,P c,origin choice 1
+2,P -1,P -1,origin choice 1
+2,P -1,P -1,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+3,P 1 2 1,P 2,origin choice 1
+4,P 1 21 1,P 21,origin choice 1
+5,C 1 2 1,C 2,origin choice 1
+1,P 1,P 1,origin choice 1
