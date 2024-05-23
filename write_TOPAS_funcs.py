@@ -14,6 +14,7 @@ from pathlib import Path, PureWindowsPath
 import re
 from fractions import Fraction
 
+# ------ Get info from cif and str files ------
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as f:
         json.dump(dictionary, f, indent=4)
@@ -294,6 +295,10 @@ def find_p1_sgt_members(subgroup_cifs_path):
     return primitive_paths
 
 
+
+
+
+# ------ Generate latparam and site lines ------
 def generate_pawley_lattice_lines(latparams, spacegroup_origin):
     '''
     Parameters
@@ -786,6 +791,10 @@ def get_basis_transformation_matirx(cif_path):
     return basis_cols, origin
 
 
+
+
+
+# ------ perturb latparms ------
 def perturb_latparams(latparams, spacegroup_origin, ran_array):
     # takes three random numbers between 0.999 & 1.001 to multiply lattice parameters a, b, c 
     # produces a small purturbation of the lattice parameters
@@ -891,6 +900,10 @@ def perturb_latparams_strainmodes(str_file, ran_array):
     return lines 
 
 
+
+
+
+# ------ Generate modes lines ------
 def get_mode_amplitudes(isodistort_str_file, use_vc_ma_macro=False):
     '''
     Parameters
@@ -1504,6 +1517,10 @@ def generate_latparam_lines_with_strain_modes_V2(isodistort_str_file, spacegroup
     return str_lines, macro_lines
 
 
+
+
+
+# ------ Write Topas INP's for ML ------
 def write_inp_for_ML(topas_input_file, latparams, cif_spacegroup_and_origin, background_line, TOF_x_axis_calibration, TOF_sample_peakshape, mode_amplitude_lines, start_finish_X, xdd_winpath, cif_name, hkl_out_file, hkl_scaled_out_file, xy_out_file):
     '''
     Parameters
@@ -1737,6 +1754,10 @@ def write_inp_for_ML_with_strain_modes(topas_input_file, strain_and_distortion_m
     return None
 
 
+
+
+
+# ------ Write Topas INP's for Pawley Refinements ------
 def write_inp_for_pawley(inp_filename, cif_name, topas_latparam_lines, TOF_x_axis_calibration, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, xy_out_file):
     '''
     Parameters
@@ -1989,6 +2010,10 @@ def write_inp_for_pawley_with_vc_macro(inp_filename, use_vc_macro, TOF_x_axis_ca
     return None
 
 
+
+
+
+# ------ Write Topas INP's for Reitveld Refinements ------
 def write_inp_for_rietveld_with_vc_macro(inp_filename, use_symmetry_mode_analysis, use_vc_lp_macro, use_vc_ma_macro, vc_lp_matrix, vc_ma_matrix, TOF_x_axis_calibration, cif_name, topas_latparam_lines, site_lines, symmetry_mode_lines, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, hkl_scaled_out_file, xy_out_file):
     '''
     Parameters
