@@ -30,6 +30,7 @@ def MaxAbsScale(X_train_load, X_test_load):
     
     return X_train, X_test
 
+
 def MinMaxScale(tensor):
     scaled_tensor = torch.zeros_like(tensor)
     for i in range(len(tensor)):
@@ -52,7 +53,8 @@ def MinMaxScale_2d(train, test, expt=None, scale=1):
     
     return train_scaled, test_scaled, expt_scaled
 
-def get_subgroup_info(subgroup_num):
+
+def get_subgroup_info(subgroup_num, cif_folder_path):
     '''
     Parameters
     ----------
@@ -63,8 +65,7 @@ def get_subgroup_info(subgroup_num):
         [subgroup_line, a, b, c, alpha, beta, gamma, spacegroup, origin_choice]
 
     '''
-    cwd = os.getcwd()
-    cif_path = os.path.join(cwd, 'subgroup_cifs', f'cif{subgroup_num}.cif')
+    cif_path = os.path.join(cif_folder_path, f'cif{subgroup_num}.cif')
     with open(cif_path, 'r') as f:
         for line in f:
             if '# Subgroup ' in line:
@@ -89,6 +90,7 @@ def get_subgroup_info(subgroup_num):
 
         return_list = [subgroup_line, a,b,c,alpha,beta,gamma, hm_name, spacegroup_int]
     return return_list
+
 
 def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     
@@ -120,7 +122,7 @@ def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     return xtrain, xtest, ytrain, ytest
 
 
-def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing):
+def configure_bragg_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing):
     
     filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
 
@@ -135,10 +137,40 @@ def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing):
         count = 0
         for j in range(temp.shape[0]):
             if count < split_index:
-                xtrain_list.append(temp[j,5390:])
+                xtrain_list.append(temp[j,trunc_index:])
                 ytrain_list.append(i)
             else:
-                xtest_list.append(temp[j,5390:])
+                xtest_list.append(temp[j,trunc_index:])
+                ytest_list.append(i)
+            count+=1
+
+    xtrain = torch.vstack(xtrain_list)
+    xtest = torch.vstack(xtest_list)
+    ytrain = torch.tensor(ytrain_list)
+    ytest = torch.tensor(ytest_list)
+
+    return xtrain, xtest, ytrain, ytest
+
+
+def configure_hkl_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing, maplocation):
+    
+    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+
+    xtrain_list = []
+    xtest_list = []
+    ytrain_list = []
+    ytest_list = []
+
+    split_index = n_randomstates - n_testing
+    for i in range(len(filepaths)):
+        temp = torch.load(filepaths[i], map_location=maplocation)
+        count = 0
+        for j in range(temp.shape[0]):
+            if count < split_index:
+                xtrain_list.append(temp[j,trunc_index:])
+                ytrain_list.append(i)
+            else:
+                xtest_list.append(temp[j,trunc_index:])
                 ytest_list.append(i)
             count+=1
 
@@ -158,6 +190,12 @@ def increment_dict_value(dictionary, key):
 
 def sort_dict_by_values_desc(dictionary):
     sorted_items = sorted(dictionary.items(), key=lambda x: x[1], reverse=True)
+    sorted_dict = dict(sorted_items)
+    return sorted_dict
+
+
+def sort_dict_by_values_ascend(dictionary):
+    sorted_items = sorted(dictionary.items(), key=lambda x: x[1], reverse=False)
     sorted_dict = dict(sorted_items)
     return sorted_dict
 

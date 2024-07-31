@@ -23,16 +23,18 @@ import torch_ESS_classes_inception as ESS_incep
 # Input phase
 #--------------------------------------------------------------------------------------------
 phase_name = 'alpha'
-train_model = False
+train_model = True
 classify_experiment = True
+# ground_truth_cif = '0152'
 ground_truth_cif = '0548'
 confidence_iterations = 100
+number_of_classes = 546
 t0 = time.time()
 cwd = os.getcwd()
 #--------------------------------------------------------------------------------------------
 # Determine if running on GPU or CPU and set tensor map locations
 #--------------------------------------------------------------------------------------------
-gpu_index = 6
+gpu_index = 3
 maplocation = util.determine_gpu_or_cpu(gpu_index)
 
 # -------------------------------------------------------------------------------------------
@@ -40,18 +42,22 @@ maplocation = util.determine_gpu_or_cpu(gpu_index)
 # -------------------------------------------------------------------------------------------
 
 # Load training and testing data as tensors 
+# data_folder = os.path.join(cwd, 'ml_data', phase_name, 'bragg_randomstates_strain_tensors_unscaled')
 data_folder = os.path.join(cwd, 'ml_data', phase_name, 'bragg_randomstates_tensors_unscaled')
 number_of_random_states = 200
 number_for_testing = 20
+trunc_index = 5390
 
-X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.configure_bragg_data_trunc(data_folder, number_of_random_states, number_for_testing)
-expt_data_unscaled = torch.load(os.path.join(cwd, 'ml_data', phase_name, 'alpha_bragg_expt.pt'))
-expt_data_unscaled = expt_data_unscaled[0,5390:]
+X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.configure_bragg_data_trunc(data_folder, trunc_index, number_of_random_states, number_for_testing)
+expt_data_unscaled = torch.load(os.path.join(cwd, 'ml_data', phase_name, f'{phase_name}_bragg_expt.pt'))
+expt_data_unscaled = expt_data_unscaled[0,trunc_index:]
 expt_data_unscaled = expt_data_unscaled.unsqueeze(0)
 
 with open('./subgroup_ML_labels_to_cifIDs.json', 'r') as f: 
     label_mapper = json.load(f)
 
+with open('./subgroup_refinable_parameter_counts.json', 'r') as f:
+    param_mapper = json.load(f)
 # -------------------------------------------------------------------------------------------
 #* Scale training & testing data, send to GPU
 # -------------------------------------------------------------------------------------------
@@ -89,22 +95,33 @@ test_loader_subgroup = DataLoader(test_data_subgroup, batch_size=64, shuffle=Tru
 #* Initialize CNN model 
 # ------------------------------------------------------------------------------------------------------   
 
-number_of_classes = 546
 
 train_loader  = train_loader_subgroup
 test_loader   = test_loader_subgroup
 
-model = xsym.CNN_bragg(num_classes=number_of_classes)
-criterion = nn.CrossEntropyLoss()
+load_pretrained_model = False
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-scheduler = MultiStepLR(optimizer, milestones=[35], gamma=0.1)
+if load_pretrained_model == True:
+    model = xsym.CNN_bragg(num_classes=number_of_classes)
+    criterion = nn.CrossEntropyLoss()
+    checkpoint = torch.load('/netdisk/dx6/saved_models/beta_e100_bragg_trunc_1_pawley.pt', map_location=maplocation)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    for state in optimizer.state.values():
+        for k, v in state.items():
+            if torch.is_tensor(v):
+                state[k] = v.to(maplocation)
+    scheduler = MultiStepLR(optimizer, milestones=[50, 125], gamma=0.1)
+    # epoch = checkpoint['epoch']
+    # loss = checkpoint['loss']
 
-# checkpoint = torch.load('/home/dx6/ESS/saved_models/alpha_spacegroup_branch_e150.pt')
-# model.load_state_dict(checkpoint['model_state_dict'])
-# optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-# epoch = checkpoint['epoch']
-# loss = checkpoint['loss']
+if load_pretrained_model == False:
+    model = xsym.CNN_bragg(num_classes=number_of_classes)
+    criterion = nn.CrossEntropyLoss()
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+    scheduler = MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
 
 
 model.to(maplocation)
@@ -117,7 +134,7 @@ criterion.to(maplocation)
 if train_model == True:
 
     number_of_top_results = min(20, number_of_classes)
-    epochs = 50
+    epochs = 150
 
     for epoch in range(epochs):
         count = 0
@@ -141,7 +158,7 @@ if train_model == True:
     then compare the predictions to the ground truth labels and compute the overall accuracy
     '''
 
-    number_of_top_results = min(20, number_of_classes)
+    number_of_top_results = min(10, number_of_classes)
     correct = [0]*number_of_top_results
     incorrect = []
     total = 0
@@ -173,7 +190,7 @@ if train_model == True:
     print(f'Runtime: {(t1-t0)/60} minutes')
 
     #! ------------ SAVE THE MODEL ------------
-    path = f'/home/dx6/ESS/saved_models/{phase_name}_e{epochs}_bragg_full.pt'
+    path = f'/netdisk/dx6/saved_models/{phase_name}_e{epochs}_bragg_trunc_new_pawley_3.pt'
     torch.save({
         'epoch':epoch, 
         'model_state_dict':model.state_dict(), 
@@ -184,45 +201,61 @@ if train_model == True:
 # * Run XsymNet against experimental data
 # ------------------------------------------------------------------------------------------------------   
 
+model_filename = f'{phase_name}_e150_bragg_trunc_new_pawley_3.pt'
+
 if classify_experiment == True:
+
+    
+    if train_model == False:
+        pretrained_model = os.path.join('/netdisk', 'dx6', 'saved_models', model_filename)
+        model = xsym.CNN_bragg(num_classes=number_of_classes)
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+        checkpoint = torch.load(pretrained_model)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+        model.to(maplocation)
+        criterion.to(maplocation)
+
     number_of_top_results = min(10, number_of_classes)
-    model_filename = 'alpha_e50_bragg_trunc.pt'
-    pretrained_model = os.path.join(cwd, 'saved_models', model_filename)
-    model = xsym.CNN_bragg(num_classes=number_of_classes)
-    criterion = nn.CrossEntropyLoss()
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-
-    checkpoint = torch.load(pretrained_model)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
-    loss = checkpoint['loss']
-
-    model.to(maplocation)
-    criterion.to(maplocation)
     confidence_results = {}
+    weighted_confidence_results = {}
+    ranked_confidence_results = {}
+    param_weight = [10,9,8,7,6,5,4,3,2,1]
+    
     with torch.no_grad():
         for i in range(confidence_iterations):
             model.eval
             predicted = model(X_expt.float())
             top = torch.topk(predicted, number_of_top_results, dim=1) # top is tuple with (values, indicies) where indicies can be used to check with labels for accuracy
 
-            top_indicies = top[1].tolist()[0]
+            top_indicies = top[1].tolist()[0] # put [0] at end since without it returns 1d nested list
+            top_logits = top[0].tolist()[0]
             predicted_subgroups = [label_mapper.get(str(x)) for x in top_indicies]
             for j in range(len(predicted_subgroups)):
                 if predicted_subgroups[j] not in confidence_results.keys():
                     confidence_results[predicted_subgroups[j]] = 1
+                    weighted_confidence_results[predicted_subgroups[j]] = 0
+                    ranked_confidence_results[predicted_subgroups[j]] = param_weight[j]
                 else: 
                     confidence_results[predicted_subgroups[j]] = funcs.increment_dict_value(confidence_results, predicted_subgroups[j])
-    
+                    ranked_confidence_results[predicted_subgroups[j]] += param_weight[j]
+
+        for key in weighted_confidence_results.keys():
+            weighted_confidence_results[key] = param_mapper.get(key)
+        
+        weighted_confidence_results = funcs.sort_dict_by_values_ascend(weighted_confidence_results)
 
     # save confidence results to json
     model_name_noext = os.path.splitext(model_filename)[0]
     confidence_results = funcs.sort_dict_by_values_desc(confidence_results)
     funcs.save_dict_to_json(confidence_results, f'./z_{model_name_noext}.json')
+    print(f'subgroup: top10 rating, DOF, place socre, ')
     for key, value in confidence_results.items():
-        print(f'{key}: {value}')
+        print(f'{key}: {value}, {weighted_confidence_results[key]}, {ranked_confidence_results[key]/confidence_iterations}')
+
 # ------------------------------------------------------------------------------------------------------
 # * Print Output and write output files
 # ------------------------------------------------------------------------------------------------------   
@@ -230,20 +263,23 @@ if classify_experiment == True:
     # get subgroup info for predicted subgroups and write to file
 
         
-    # print()
-    # model_name_noext = os.path.splitext(model_filename)[0]
-    # with open(f'./z_{model_name_noext}.txt', 'a') as f:
-    #     f.write('------------------\n')
-    #     f.write(f'Ground Truth Info: \n')
-    #     subgroup_info = funcs.get_subgroup_info(ground_truth_cif)
-    #     f.write(f'{subgroup_info[0]}')
-    #     f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
-    #     f.write('------------------\n')
-    #     f.write(f'Prediction Results: \n')
-    #     f.write(f'Evaluated Model: {pretrained_model}\n')
-    #     f.write(f'{predicted_subgroups}\n\n')
-    #     for i in range(len(predicted_subgroups)):
-    #         subgroup_info = funcs.get_subgroup_info(predicted_subgroups[i])
-    #         f.write(f'{subgroup_info[0]}')
-    #         f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n\n')
-    #     f.write(f'\n-----------------------------------------------------------------------------\n\n')
+    print()
+    cif_path = os.path.join(cwd, f'subgroup_cifs_{phase_name}' )
+    model_name_noext = os.path.splitext(model_filename)[0]
+    keys = list(confidence_results.keys())
+    with open(f'./z_{model_name_noext}.txt', 'a') as f:
+        f.write('------------------\n')
+        f.write(f'Ground Truth Info: \n')
+        subgroup_info = funcs.get_subgroup_info(ground_truth_cif, cif_path)
+        f.write(f'{subgroup_info[0]}')
+        f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
+        f.write('------------------\n')
+        f.write(f'Prediction Results: \n')
+        f.write(f'Evaluated Model: {model_filename}\n')
+        f.write(f'{keys}\n\n')
+        for i in range(len(keys)):
+            subgroup_info = funcs.get_subgroup_info(keys[i], cif_path)
+            f.write(f'{subgroup_info[0]}')
+            f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
+            f.write(f'100 iteration score: {confidence_results[keys[i]]}\n\n')
+        f.write(f'\n-----------------------------------------------------------------------------\n\n')

@@ -14,6 +14,96 @@ from pathlib import Path, PureWindowsPath
 import re
 from fractions import Fraction
 
+# ------ Instrument specific info for TOPAS INP files ------
+def powgen_inp_lines(xdd_winpath, start_finish_X):
+    POWGEN_lines =  f"""\'----------------------------------------### Defining data sets ###----------------------------------------
+#define POWGEN_bank2_HR     #define PZT
+
+\'------------------------------------ ### Main refinement block ### ------------------------------------
+\'------------------------------------ ### Bank 2 Refinement ### ----------------------------------------
+
+\' bank 2 CWL = 1.5 A
+\'Auto_T(0.00001)
+#ifdef POWGEN_bank2_HR  \' CW 1.5
+xdd "{xdd_winpath}" xye_format
+
+r_wp  4.26657241 r_exp  1.21296252 r_p  4.26050189 r_wp_dash  11.1422731 r_p_dash  13.383831 r_exp_dash  3.16768554 weighted_Durbin_Watson  0.418282357 gof  3.51748082
+	NeutronDiffraction   \' TOF neutron diffraction data         
+	scale_pks = D_spacing^pow;  \' Scale peak intensity as
+	bkg   @  19.7109896` -8.98924502`  3.17541401`  0.495459169` -0.454497106` -0.0348046453` -0.822973658`
+    start_X {start_finish_X[0]}
+    finish_X {start_finish_X[1]}
+	
+	local    !d0_1    9.32610_1.56688	    min -20  max 20 
+	local    !difc_1  22571.96329_1.29489   min 22500 max 22650
+	local    difa_1  1.34602`		   	    min -10  max 10	
+	local    difb_1 -4.35349`		        min -5   max 5
+	TOF_x_axis_calibration_POWGEN(@,=d0_1;,
+								  @,=difc_1;,
+								  @,=difa_1;,
+								  @,=difb_1;)
+	
+
+	POWGEN_instrument_2										  \'2019B values in below
+	local   !sig0 -69.01185 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
+	local   !sig1  71.36388 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
+	local   !sig2 -3.87115 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
+	local   !sig3  14.47384 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
+	local   !gam0  19.43787 min -20 max 20     'gam0 -11.17295_0.33002 min -20 max 20   
+	local   !gam1  5.14586 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
+	local   !gam2  12.54013 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
+			
+	GSAS_btb
+	local   !alpha0  128.45983 min 0 max 150 'alpha0 -95.16910_1.07001 min -150 max 100
+	local   !alpha1 -12.92398 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+	local   !alpha2 -10.66430 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+	local   !beta0 -94.61370 min -100 max 0  'beta0  73.08348_0.29513 min -100 max 100 
+	local   !beta1  13.33492 min -100 max 100   'beta1 -2.68722_0.05497 min -100 max 100  
+
+\'------------------------------------ ### STR BLOCK ### ----------------------------------------
+
+"""
+    return POWGEN_lines
+
+
+def hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line):
+    HRPD_lines = f"""\'----------------------------------------### Defining data sets ###----------------------------------------
+#define use_data 
+#ifdef use_data
+#define USE_BS    macro filename_bs    {{"{xdd_winpath}"}}
+#endif
+
+\'----------------------------------------### Main refinement block ###----------------------------------------
+#ifdef USE_BS
+xdd filename_bs xye_format
+    start_X {start_finish_X[0]}
+    finish_X {start_finish_X[1]}
+    local !neutron 1 local !xray 0 
+    neutron_data
+    r_wp 0.0
+    {TOF_x_axis_calibration}
+    local !bank_two_theta 168.567 
+    local !mu  0.07076 
+    local !fixb  0.0 min -10 max 10 
+    {background_line}
+    
+    scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); \'fixb correction local to each bank
+    weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
+        x_calculation_step = Yobs_dx_at(Xo); convolution_step 4
+        TOF_LAM(0.001)
+        scale_pks = D_spacing^4;
+        scale_pks = Exp(-mu*2 D_spacing Sin(0.00872664626 two_theta));   \'absorption correction local to each bank
+
+        #define peak1
+        #ifdef peak1
+            wifd_pkshape(!two_theta, =bank_two_theta;, !aprm, 2.50000, !tauf_2, 9.80744, !tauf_1, 0.43977, !tauf_0, 0.000, !taus_0, 25.27420, !taus_1, 2.66797, !t_eff, 144.41296, !hhh, 3.58595, !hhh_0, 11.61348)
+        #endif
+
+"""
+    return HRPD_lines
+
+
+
 # ------ Get info from cif and str files ------
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as f:
@@ -795,6 +885,7 @@ def get_basis_transformation_matirx(cif_path):
 
 
 # ------ perturb latparms ------
+
 def perturb_latparams(latparams, spacegroup_origin, ran_array):
     # takes three random numbers between 0.999 & 1.001 to multiply lattice parameters a, b, c 
     # produces a small purturbation of the lattice parameters
@@ -1185,7 +1276,7 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
     return all_mode_lines
 
 
-def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, refine_beq = False, beq_dict = None, use_vc_ma_macro=False ):
+def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
     '''
     Parameters
     ----------
@@ -1209,6 +1300,14 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
     use_vc_ma_macro: Bool
         Whether to apply vc_ma macro for continue on convergence to augment the mode_amplitude value after every convergence
         Also removes '!' before every prm aX in mode definitions to allow them to refine
+    mulitphase: Bool - Default: False
+        if True: Changes prm to local to avoid variables cross contaminating, changes scaling behavior based on number of phases
+    wt_dets_macro: str - Default: str(None)
+        Line to control the wt% of each phase 
+        Ex: for the first of 3 phases :: wt_dets(1,3,0) where the 0 in the third position just reports the wt% after TOPAS runs
+    phase_count: int - Default: None
+        an integer to append to beq variable names for multiphase inputs where atoms types are the same
+    
     Returns:
         List of strings: for structure perturbation using strain modes and symmetry mode analysis for writing into a topas input file
 
@@ -1247,7 +1346,10 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
         if start_str in line:
             for append_lines in file_lines:
                 if 'scale' in append_lines:
-                    str_strain.append(f'\t\tscale @ 1.0\n')
+                    if multiphase == True:
+                        str_strain.append(f'\n')
+                    else:
+                        str_strain.append(f'\t\tscale @ 100.0\n')
                     break
                 str_strain.append(append_lines)
 
@@ -1291,41 +1393,78 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
                     continue
                 difference_restrainsts.append(append_lines)
 
-        if macros_str in line:
-            for append_lines in file_lines[i:]:
-                strain_macros.append(append_lines)
-                if end_str in append_lines:
-                    break
+        # if macros_str in line:
+        #     for append_lines in file_lines[i:]:
+        #         strain_macros.append(append_lines)
+        #         if end_str in append_lines:
+        #             break
 
 
     # ----------------------------------------------------------------------------------------
     #* Augment strain mode lines
     # ----------------------------------------------------------------------------------------
-
-    for i in range(len(str_strain)):
-        if 'space_group' in str_strain[i]:
-            str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
-
-        if '#ifdef refine_strain_modes' in str_strain[i]:
-            random_count = 0
-            for j in range(i+1, len(str_strain)):
-                split = str_strain[j].split()
-                # print(split)
-                if len(split) == 0:
-                    break
-                split = str_strain[j].split('0.00000')
-                # print(split)
-                newline = f'{split[0]}{random_strain[random_count]} {split[1]}'
-                random_count += 1
-                # print(newline)
-                str_strain[j] = newline
-                # print(str_strain[j])
-            
-            break
-    
     # insert peak shape line in str_strain
     str_strain.insert(4, f'\t\t{peak_shape_line}\n')
     str_strain.insert(5, f'\t\tr_bragg 0.0\n')
+    
+    if multiphase==False:
+        for i in range(len(str_strain)):
+            if 'space_group' in str_strain[i]:
+                str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+            if '#ifdef refine_strain_modes' in str_strain[i]:
+                random_count = 0
+                for j in range(i+1, len(str_strain)):
+                    split = str_strain[j].split()
+                    # print(split)
+                    if len(split) == 0:
+                        break
+                    split = str_strain[j].split('0.00000')
+                    # print(split)
+                    newline = f'{split[0]}{random_strain[random_count]} {split[1]}'
+                    random_count += 1
+                    # print(newline)
+                    str_strain[j] = newline
+                    # print(str_strain[j])
+                
+                break
+    
+    if multiphase == True:
+        str_strain.insert(6, f'\t\t{wt_dets_macro}\n')
+        for i in range(len(str_strain)):
+            if 'space_group' in str_strain[i]:
+                str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+            if '#ifdef refine_strain_modes' in str_strain[i]:
+                random_count = 0
+                for j in range(i+1, len(str_strain)):
+                    split = str_strain[j].split()
+                    # print(split)
+                    if len(split) == 0:
+                        break
+                    split = str_strain[j].split('0.00000')
+                    # print(split)
+                    local_split = split[0].replace('prm', 'local')
+                    newline = f'{local_split}{random_strain[0][random_count]} {split[1]}'
+                    random_count += 1
+                    # print(newline)
+                    str_strain[j] = newline
+                    # print(str_strain[j])
+            
+            if 'unitless parent cell strains' in str_strain[i]:
+                for j in range(i+1, len(str_strain)):
+                    if len(str_strain[j].split()) == 0:
+                        break
+                    newline = str_strain[j].replace('prm', 'local')
+                    str_strain[j] = newline
+
+            if 'straincell(' in str_strain[i]:
+                newline = str_strain[i].replace('straincell', 'straincell_local')
+                str_strain[i] = newline
+            
+            if 'celltransform(' in str_strain[i]:
+                newline = str_strain[i].replace('celltransform', 'celltransform_local')
+                str_strain[i] = newline
 
 
     # ----------------------------------------------------------------------------------------
@@ -1334,27 +1473,47 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
 
     # Transform mode_definitions_lines into dataframe to augment ititial values for mode amplitudes
     mode_definitions_lines = [line.split() for line in mode_definitions]
-    mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
+    mode_definitions_writing=[]
+    # special case where there are no mode definitions, writes empty dataframe, if statement checking if len is 0 prevents this issue
+    if len(mode_definitions_lines) != 0:
+        mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
 
-    # generate random intial values for mode amplitudes
-    rand_values = np.random.normal(0, .33, len(mode_definitions_df))
-    mode_definitions_df[2] = rand_values
+        # generate random intial values for mode amplitudes
+        rand_values = np.random.normal(0, .33, len(mode_definitions_df))
+        mode_definitions_df[2] = rand_values
 
-    # augment each line of mode amplitudes to include vc macro
-    if use_vc_ma_macro == True:
-        vc_column = ['vc min']*len(mode_definitions_df)
-        mode_definitions_df[3] = vc_column
+        # augment each line of mode amplitudes to include vc macro
+        if use_vc_ma_macro == True:
+            vc_column = ['vc min']*len(mode_definitions_df)
+            mode_definitions_df[3] = vc_column
 
-        # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
-        mode_var_names = mode_definitions_df[1].tolist()
-        mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
-        mode_definitions_df[1] = mode_var_names
+            # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
+            mode_var_names = mode_definitions_df[1].tolist()
+            mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
+            mode_definitions_df[1] = mode_var_names
 
 
-    # Transform mode amplitudes dataframe back to strings for writing
-    mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
-    mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
-    mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+        # Transform mode amplitudes dataframe back to strings for writing
+        mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
+        mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
+
+        if multiphase == True:
+            for i in range(len(mode_definitions_writing_split)):
+                mode_definitions_writing_split[i] = mode_definitions_writing_split[i].replace('prm', 'local')
+
+        mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+
+    # ----------------------------------------------------------------------------------------
+    #* If multiphase - change prm to local in mode-amplitude-to-delta-transformation & distorted parameters sections
+    # ----------------------------------------------------------------------------------------
+    if multiphase == True:
+        for i in range(len(mode_amplitudes)):
+            newline = mode_amplitudes[i].replace('prm', 'local')
+            mode_amplitudes[i] = newline
+
+        for i in range(len(distorted_parameters)):
+            newline = distorted_parameters[i].replace('prm', 'local')
+            distorted_parameters[i] = newline
 
     # ----------------------------------------------------------------------------------------
     #* Augment mode dependent sites lines to have beq values
@@ -1392,8 +1551,12 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
         atom_type = mode_dependent_sites_lines[i][1].split('_')[0]
         if refine_beq == True:
             beq_var_name = f'beq bval_{atom_type}'
+            if phase_count != None:
+                beq_var_name = f'beq bval_{atom_type}_{phase_count}'
         else: 
             beq_var_name = f'beq !bval_{atom_type}'
+            if phase_count != None:
+                beq_var_name = f'beq !bval_{atom_type}_{phase_count}'
 
         mode_dependent_sites_lines[i][17] = beq_var_name
 
@@ -1445,10 +1608,10 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
         all_mode_lines.append(difference_restrainsts[i])
     all_mode_lines.append(f'{end_str}\n\n')   
 
-    # append macros
-    for i in range(len(strain_macros)):
-        all_mode_lines.append(strain_macros[i])
-    all_mode_lines.append('\n\n')
+    # # append macros
+    # for i in range(len(strain_macros)):
+    #     all_mode_lines.append(strain_macros[i])
+    # all_mode_lines.append('\n\n')
 
 
     return all_mode_lines
@@ -1515,6 +1678,33 @@ def generate_latparam_lines_with_strain_modes_V2(isodistort_str_file, spacegroup
                 macro_lines.append(file_lines[j])
 
     return str_lines, macro_lines
+
+
+def generate_multiphase_wt_percent_lines(num_phases, topas_scale_value, random_weight):
+
+    if num_phases == 2:
+        xdd_wt_percent_lines = f"""\tprm scale1 {topas_scale_value}
+    prm w1 = 100 - w2; : 0.0
+    prm w2 {random_weight}
+
+"""
+    if num_phases == 3:
+        w2 = random_weight
+        if w2 >= 70.0:
+            w3 = 0.5*(100.0 - w2)
+        
+        else:
+            rw = 0.25*(100.0 - w2)
+            random_remainder = np.random.uniform(low=-rw, high=rw)
+            w3 = 0.5*(100.0 - w2) + random_remainder
+        
+        xdd_wt_percent_lines = f"""\tprm scale1 {topas_scale_value}
+    prm w1 = 100 - w2 - w3; : 0.0
+    prm w2 {random_weight[0]}
+    prm w3 {w3[0]}
+
+"""
+    return xdd_wt_percent_lines
 
 
 
@@ -1648,7 +1838,7 @@ def write_inp_for_ML(topas_input_file, latparams, cif_spacegroup_and_origin, bac
     return None 
 
 
-def write_inp_for_ML_with_strain_modes(topas_input_file, strain_and_distortion_modes, background_line, TOF_x_axis_calibration, start_finish_X, xdd_winpath, hkl_out_file, hkl_scaled_out_file, xy_out_file):
+def write_inp_for_ML_with_strain_modes(beamline_choice, topas_input_file, strain_and_distortion_modes, background_line, TOF_x_axis_calibration, start_finish_X, xdd_winpath, hkl_out_file=None, hkl_scaled_out_file=None, xy_out_file=None):
 
     '''
     Parameters
@@ -1678,64 +1868,40 @@ def write_inp_for_ML_with_strain_modes(topas_input_file, strain_and_distortion_m
     '''
 
     refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
-    iters  0
-    chi2_convergence_criteria 0.0001
-    \'Auto_T(0.00001)  \' simulated annealing 
-    \'do_errors
-    no_LIMIT_warnings
-    \'continue_after_convergence
-    r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
+iters  0
+chi2_convergence_criteria 0.0001
+\'Auto_T(0.00001)  \' simulated annealing 
+\'do_errors
+no_LIMIT_warnings
+\'continue_after_convergence
+r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
 
 """
     global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
-
+prm !pow  4
 """
-    data_lines_1 = f"""\'----------------------------------------### Defining data sets ###----------------------------------------
-    #define use_data 
-    #ifdef use_data
-    #define USE_BS    macro filename_bs    {{"{xdd_winpath}"}}
-    #endif
+    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line)
+    POWGEN_lines = powgen_inp_lines(xdd_winpath, start_finish_X)
 
-\'----------------------------------------### Main refinement block ###----------------------------------------
-    #ifdef USE_BS
-    xdd filename_bs xye_format
-        start_X {start_finish_X[0]}
-        finish_X {start_finish_X[1]}
-        local !neutron 1 local !xray 0 
-        neutron_data
-        r_wp 0.0
-        {TOF_x_axis_calibration}
-        local !bank_two_theta 168.567 
-        local !mu  0.07076 
-        local !fixb  0.0 min -10 max 10 
-        {background_line}
-        
-        scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); 'fixb correction local to each bank
-        weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
-            x_calculation_step = Yobs_dx_at(Xo); convolution_step 4
-            TOF_LAM(0.001)
-            scale_pks = D_spacing^4;
-            scale_pks = Exp(-mu*2 D_spacing Sin(0.00872664626 two_theta));   'absorption correction local to each bank
+    #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
 
-            #define peak1
-            #ifdef peak1
-                wifd_pkshape(!two_theta, =bank_two_theta;, !aprm, 2.50000, !tauf_2, 9.80744, !tauf_1, 0.43977, !tauf_0, 0.000, !taus_0, 25.27420, !taus_1, 2.66797, !t_eff, 144.41296, !hhh, 3.58595, !hhh_0, 11.61348)
-            #endif
+    #* STR SECTION, STRAIN MODES, AND SYMMETRY MODE LINES ARE WRITTEN HERE DURING FILE WRITING
 
-"""
-    # STR SECTION, STRAIN MODES, AND SYMMETRY MODE LINES ARE WRITTEN HERE DURING FILE WRITING
-    
-    output_lines_XYcalc = f""" 
+    if xy_out_file != None:
+        output_lines_XYcalc = f""" 
         Out_X_Ycalc(\"{xy_out_file}\")
 """
-    output_lines_hkl = f""" 
+    if hkl_out_file != None:
+        output_lines_hkl = f""" 
         Create_d_Ip_file_dayton(\"{hkl_out_file}\")
+        
+"""
+    if hkl_scaled_out_file != None:
+        output_lines_hkl_scaled = f""" 
         Create_d_IScaled_file_dayton(\"{hkl_scaled_out_file}\")
         
-        
-#endif
 """
-
+    endif_line = '\n#endif \n'
     usr_macros = """\'----------------------------------------### User defined macros ###----------------------------------------
 
 """
@@ -1743,16 +1909,130 @@ def write_inp_for_ML_with_strain_modes(topas_input_file, strain_and_distortion_m
     with open(topas_input_file, 'w') as f:
         f.write(refine_lines)
         f.write(global_lines)
-        f.write(data_lines_1)
+        if beamline_choice == "HRPD":
+            f.write(HRPD_lines)
+        elif beamline_choice == "POWGEN":
+            f.write(POWGEN_lines)
+        else:
+            raise Exception("Incorrect choice of beamline. Choose from: \nPOWGEN\nHRPD\n")
+        
         for i in range(len(strain_and_distortion_modes)):
             f.write(strain_and_distortion_modes[i])
 
-        f.write(output_lines_XYcalc)
-        f.write(output_lines_hkl)
+        if xy_out_file != None:
+            f.write(output_lines_XYcalc)
+        if hkl_out_file != None:
+            f.write(output_lines_hkl)
+        if hkl_scaled_out_file != None:
+            f.write(output_lines_hkl_scaled)
+
+        f.write(endif_line)
         f.write(usr_macros)
 
     return None
 
+
+def write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, topas_input_file, strain_and_distortion_modes, background_line, TOF_x_axis_calibration, start_finish_X, xdd_winpath, xdd_wt_percent_lines = None, xy_out_file = None, hkl_out_file=None, hkl_scaled_out_file=None):
+
+    '''
+    Parameters
+    ----------
+    topas_input_file_name: str
+        Name of the INP file to write
+    strain_and_distortion_modes: list of strings
+        Defines the str section of topas input, the strain modes for lattice parameter perturbation,  the distortion modes definitions, and the macros for strain modes
+    background_line: fstring
+        the background line from a good pawley fit of the experiment (makes the background consistent for all simulated powder patterns) 
+        (if the background is the same, the differences in the powder patterns are purely from differences of structure)
+    TOF_x_axis_calibration: fstring
+        TOF_x_axis_calibration line from a good pawley fit of the experiment (same reason as background_line)
+    start_finish_X: list of floats
+        start and finish of TOF range for Topas
+    xdd_winpath: str
+        Full Windows path to the data file for xdd
+    hkl_out_file: str
+        Path and Name of the output file for the hkl intensities
+    hkl_scaled_out_file: str
+        Path and name of the output file for topas scaled hkl intensities
+    xy_out_file: str
+        Path and Name of the output file for the calculated xy diffraction pattern
+
+    Returns:
+        Returns nothing, but writes the TOPAS input file
+    '''
+
+    refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
+iters  0
+chi2_convergence_criteria 0.0001
+\'Auto_T(0.00001)  \' simulated annealing 
+\'do_errors
+no_LIMIT_warnings
+\'continue_after_convergence
+r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
+
+"""
+    global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
+prm !pow  4
+"""
+    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line)
+    POWGEN_lines = powgen_inp_lines(xdd_winpath, start_finish_X)
+
+    #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
+
+    #* STR SECTION, STRAIN MODES, AND SYMMETRY MODE LINES ARE WRITTEN HERE DURING FILE WRITING
+    
+    if xy_out_file != None:
+        output_lines_XYcalc = f""" 
+        Out_X_Ycalc(\"{xy_out_file}\")
+
+"""
+    if hkl_out_file != None:
+        output_lines_hkl = f""" 
+        Create_d_Ip_file_dayton(\"{hkl_out_file}\")
+        
+"""
+    if hkl_scaled_out_file != None:
+        output_lines_hkl_scaled = f""" 
+        Create_d_IScaled_file_dayton(\"{hkl_scaled_out_file}\")
+        
+"""
+
+    endif_line = '\n#endif\n'
+    usr_macros = """\'----------------------------------------### User defined macros ###----------------------------------------
+
+"""
+
+    with open(topas_input_file, 'w') as f:
+
+        f.write(refine_lines)
+
+        f.write(global_lines)
+
+        if beamline_choice == "HRPD":
+            f.write(HRPD_lines)
+        elif beamline_choice == "POWGEN":
+            f.write(POWGEN_lines)
+        else:
+            raise Exception("Incorrect choice of beamline. Choose from: \nPOWGEN\nHRPD\n")
+        
+        if xdd_wt_percent_lines != None:
+            for i in range(len(xdd_wt_percent_lines)):
+                f.write(xdd_wt_percent_lines[i])
+        
+        for i in range(len(strain_and_distortion_modes)):
+            f.write(strain_and_distortion_modes[i])
+
+        if xy_out_file != None:
+            f.write(output_lines_XYcalc)
+        if hkl_out_file != None:
+            f.write(output_lines_hkl)
+        if hkl_scaled_out_file != None:
+            f.write(output_lines_hkl_scaled)
+            
+        f.write(endif_line)
+        f.write(usr_macros)
+
+    return None
 
 
 

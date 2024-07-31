@@ -39,7 +39,7 @@ def convert_hkl_list_to_tensors(filepath, tensor_writepath):
     '''
 
     # read in hkl lists from topas output and sort the hkl lists by ascending d_spacing
-    hkl = pd.read_csv(filepath, sep='\s+', header = None, names = ['d','i'], dtype=np.float64)
+    hkl = pd.read_csv(filepath, sep='\s+', header = None, names = ['d','i'], dtype=np.float32)
     sorted_hkl = hkl.sort_values(by=['d'], ascending=True)
     hkl_tensor = torch.tensor(sorted_hkl.values, dtype=torch.float)
 
@@ -83,7 +83,7 @@ def get_d_bounds_for_binning(hkl_files_paths, experimental_hkl_path=None):
 
 
 def create_bin_edges(phase_name, c, lowest_d_value, largest_d_value):
-
+    cwd = os.getcwd()
     # choice of 1st bin center : b0
     # c = delta_d / d = resolution factor; instrument and frame dependent
     bc = lowest_d_value
@@ -123,11 +123,13 @@ def create_bin_edges(phase_name, c, lowest_d_value, largest_d_value):
     bin_edges.append(bfedge)
 
     # write bin centers and bin edges to files
-    with open(f'./TOPAS/{phase_name}/{phase_name}_bin_centers_{cstring}.txt', 'w') as f:
+    save_dir = os.path.join(cwd, 'ml_data', phase_name)
+    if not os.path.exists(save_dir): os.makedirs(save_dir)
+    with open(os.path.join(save_dir, f'{phase_name}_bin_centers_{cstring}.txt', 'w')) as f:
         for i in range(len(bin_centers)):
             f.write(f'{bin_centers[i]}\n')
 
-    with open(f'./TOPAS/{phase_name}/{phase_name}_bin_edges_{cstring}.txt', 'w') as f:
+    with open(os.path.join(save_dir, f'{phase_name}_bin_edges_{cstring}.txt', 'w')) as f:
         for i in range(len(bin_edges)):
             f.write(f'{bin_edges[i]}\n')
 
@@ -153,7 +155,49 @@ def make_tarfile(tar_name, source_dir):
         tar.add(source_dir, arcname=os.path.basename(source_dir))
 
 
+def count_refinable_parameters_in_topas_strs(topas_str_path):
 
+     # define ranges of bravais lattices
+    dof6_range = np.arange(1,3).tolist()  # triclinic
+    dof4_range = np.arange(3,16).tolist() # monoclinic
+    dof3_range = np.arange(16,75).tolist() # orthorhombic
+    dof2_range = np.arange(75,195).tolist() # tetragonal, trigonal, hexagonal
+    dof1_range = np.arange(195,231).tolist() # cubic
+
+    count = 0
+    with open(topas_str_path, 'r') as f:
+        for i in range(len(f)):
+            if 'space_group' in f[i]:
+                sline = f[i].strip().split()
+                spacegroup = int(sline[1])
+                if spacegroup in dof6_range:
+                    count = count + 6
+                if spacegroup in dof4_range:
+                    count = count + 4
+                if spacegroup in dof3_range:
+                    count = count + 3
+                if spacegroup in dof2_range:
+                    count = count + 2
+                if spacegroup in dof1_range:
+                    count = count + 1
+            
+            if 'mode definitions' in f[i]:
+                for j in range(i+1, len(f)):
+                    if 'prm' in f[j]:
+                        count = count+1
+                    if len(f[j].strip()) == 0:
+                        i = j
+                        break
+            
+            if 'mode-dependent sites' in f[i]:
+                for j in range(i+1, len(f)):
+                    if 'site' in f[j]:
+                        count = count+1
+                    if len(f[j].strip()) == 0:                        
+                        break   
+                break
+    
+    return count
 
 
 
