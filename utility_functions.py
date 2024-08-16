@@ -6,6 +6,7 @@ Email: kizziredg@ornl.gov
 
 import os
 import glob
+import json
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -166,9 +167,10 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
 
     count = 0
     with open(topas_str_path, 'r') as f:
-        for i in range(len(f)):
-            if 'space_group' in f[i]:
-                sline = f[i].strip().split()
+        lines = f.readlines()
+        for i in range(len(lines)):
+            if 'space_group' in lines[i]:
+                sline = lines[i].strip().split()
                 spacegroup = int(sline[1])
                 if spacegroup in dof6_range:
                     count = count + 6
@@ -181,24 +183,26 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
                 if spacegroup in dof1_range:
                     count = count + 1
             
-            if 'mode definitions' in f[i]:
-                for j in range(i+1, len(f)):
-                    if 'prm' in f[j]:
+            if 'mode definitions' in lines[i]:
+                for j in range(i+1, len(lines)):
+                    if 'prm' in lines[j]:
                         count = count+1
-                    if len(f[j].strip()) == 0:
+                    if len(lines[j].strip()) == 0:
                         i = j
                         break
             
-            if 'mode-dependent sites' in f[i]:
-                for j in range(i+1, len(f)):
-                    if 'site' in f[j]:
+            if 'mode-dependent sites' in lines[i]:
+                for j in range(i+1, len(lines)):
+                    if 'site' in lines[j]:
                         count = count+1
-                    if len(f[j].strip()) == 0:                        
+                    if len(lines[j].strip()) == 0:                        
                         break   
                 break
     
     return count
 
 
-
+def save_dict_to_json(dictionary, filename):
+    with open(filename, 'w') as f:
+        json.dump(dictionary, f, indent=4)
 

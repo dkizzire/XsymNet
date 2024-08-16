@@ -7,18 +7,18 @@ import utility_functions as util
 
 cwd = os.getcwd()
 
-do_hkl_intensities = True
-do_diffraction_pattern = False
+do_hkl_intensities = False
+do_diffraction_pattern = True
 
-phase_name = 'beta'
+phase_name = 'pzt_90'
 experimental_hkl_filename = 'exp_hkl.dat'
-experimental_bragg_filename = 'exp_xy.xy'
+experimental_bragg_filename = 'cif0033_dy_expt.xy'
 ml_randomstates_dir_name = 'randomstates_strain'
 
 hkl_tarname = f'{phase_name}_hkl_tensors_strain_notbinned.tar'
 bragg_tarname = f'{phase_name}_bragg_strain_tensors_unscaled.tar'
 
-transfer_directory = os.path.join(cwd, 'ml_data', phase_name)
+transfer_directory = os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_tensors')
 if not os.path.exists(transfer_directory): os.makedirs(transfer_directory)
 
 if do_hkl_intensities == True:
@@ -60,7 +60,7 @@ if do_hkl_intensities == True:
 
 if do_diffraction_pattern == True:
 
-    data_suffix = f'*.xy'
+    data_suffix = f'*dy.xy'
     dir_to_store_data = 'bragg_strain_randomstates_tensors_unscaled'
     save_tensor_dir = os.path.join(transfer_directory, dir_to_store_data)
     if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
@@ -71,7 +71,7 @@ if do_diffraction_pattern == True:
     tensor_list_percif = []
     for i in range(len(cif_dirs)):
         print(f'Working on {dirs_basenames[i]}')
-        bragg_files = sorted(glob.glob(os.path.join(cif_dirs[i], '*.xy')))
+        bragg_files = sorted(glob.glob(os.path.join(cif_dirs[i], '*dy.xy')))
         for j in range(len(bragg_files)):
             tensor_list_percif.append(util.convert_bragg_to_tensors(bragg_files[j]))
         

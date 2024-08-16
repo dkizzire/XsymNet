@@ -9,11 +9,16 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    phase_name = 'beta'
-    sub_folder_1 = 'subgrouptree_refinement'
+    phase_name = 'pzt_90'
+    beamline_choice = 'POWGEN'
+    sub_folder_1 = 'SGT_pawley_refinement'
     topas_version = 'TOPAS6'
-    use_strain_modes = True
+    use_strain_modes = False
 
+    experimental_data_file = f'PZT_90_300_k.xye'
+    peakshape_lines = f'peak_type pv \n\t\tTOF_CS_L (@ , 581.69638, difc_1) \n'
+
+    
     if phase_name == 'alpha':
         experimental_data_file = f'hrp27188_bs_alpha_neutron.xye'
         TOF_x_axis_calibration = 'TOF_x_axis_calibration(t0_hrpd_bs,-49.37818`,!difc_hrpd_bs, 48255.09936_0.61297, difa_hrpd_bs,  15.23076`)'
@@ -29,7 +34,7 @@ def main():
     experimental_data_path = os.path.join(cwd, 'TOPAS', phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
-    start_finish_x = [35000, 121000] # TOF start & finish position in microseconds
+    start_finish_X = [40000, 96000] # TOF start & finish position in microseconds
 
     # number of iterations for pawley refinement
     refinement_iterations = 1000
@@ -38,11 +43,11 @@ def main():
     conv_criteria = 0.00001
 
     # paths to all cif and topas_str files
-    cif_files = sorted(glob.glob(f'./subgroup_cifs_beta/*.cif'))
-    str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', 'topas_strs_beta', '*.str')))
+    cif_files = sorted(glob.glob(f'./subgroup_cifs_{phase_name}/*.cif'))
+    str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', '*.str')))
 
     # create batchfiles for running all pawley refinments
-    number_of_cifs_in_a_batch = 100
+    number_of_cifs_in_a_batch = 31
     number_of_batchfiles = int(len(cif_files)/number_of_cifs_in_a_batch)
     batch_count_list = [number_of_cifs_in_a_batch]*number_of_batchfiles
     batch_remainder = len(cif_files) % number_of_cifs_in_a_batch
@@ -79,29 +84,33 @@ def main():
         # windows path for hkl and xy out files (so topas can write files)
         hkl_out_file = PureWindowsPath(Path(f'{topas_input_folder}/{cif_noext[i]}_hkl.dat').absolute())
         xy_out_file = PureWindowsPath(Path(f'{topas_input_folder}/{cif_noext[i]}_xy.xy').absolute())
+        dy_out_file = PureWindowsPath(Path(f'{topas_input_folder}/{cif_noext[i]}_dy.xy').absolute())
+
 
         # get lattice information from cifs, use info to generate lines for hkl_Is section of topas input file
         latparams, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
         if use_strain_modes == True:
-            topas_latparam_lines, macro_lines = funcs.generate_latparam_lines_with_strain_modes_V2(str_files[i], spacegroup_origin, TOF_sample_peakshape)
+            topas_latparam_lines, macro_lines = funcs.generate_pawley_latparam_lines_with_strain_modes(str_files[i], spacegroup_origin, peakshape_lines)
         else:
-            topas_latparam_lines = funcs.generate_pawley_lattice_lines(latparams)
+            topas_latparam_lines = funcs.generate_pawley_lattice_lines(latparams, spacegroup_origin, peakshape_lines)
             macro_lines = []
+        
+        # generate instrument specific lines
+        if beamline_choice == 'POWGEN':
+            instrument_lines = funcs.powgen_inp_lines(xdd_winpath, start_finish_X)
+        elif beamline_choice == 'HRPD':
+            instrument_lines = funcs.hrpd_inp_lines(xdd_winpath, start_finish_X)
+        else:
+            raise Exception("Incorrect choice of beamline. Choose from: \nPOWGEN\nHRPD\n")
+        
         # write input file
-        funcs.write_inp_for_pawley_on_subgroup_tree(use_strain_modes, 
-                                                    topas_input_file, 
-                                                    cif_noext[i], 
-                                                    topas_latparam_lines, 
-                                                    macro_lines, 
-                                                    TOF_x_axis_calibration, 
-                                                    bkg_line, 
-                                                    TOF_sample_peakshape, 
-                                                    xdd_winpath, 
-                                                    refinement_iterations, 
-                                                    conv_criteria, 
-                                                    start_finish_x, 
-                                                    hkl_out_file, 
-                                                    xy_out_file)
+        funcs.write_topas_input_pawley(topas_input_file, 
+                                       instrument_lines, 
+                                       topas_latparam_lines, 
+                                       iterations=1000,  
+                                       continue_after_convergence=True, 
+                                       xy_out_file=xy_out_file,
+                                       dy_out_file=dy_out_file)
 
         # write file for batch running topas pawley refinements of subgrouptree
         # write a windows batch file to run 100 cifs of random states of input files at a time

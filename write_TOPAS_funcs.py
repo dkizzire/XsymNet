@@ -15,50 +15,93 @@ import re
 from fractions import Fraction
 
 # ------ Instrument specific info for TOPAS INP files ------
-def powgen_inp_lines(xdd_winpath, start_finish_X):
+def powgen_inp_lines(xdd_winpath, start_finish_X, refine_instrument_parameters=False):
+    '''
+    Parameters
+    ----------
+    xdd_winpath: str
+        Full Windows path to the data file for xdd
+    start_finish_X: list of floats
+        start and finish of TOF range for Topas
+    refine_instrument_parameters: bool: False
+        writes ! in front of instrument parameters to prevent them from refining
+    '''
+
+
+    if refine_instrument_parameters == False:
+        param_lines = """    local    !d0_1    9.32399	    min -20  max 20 
+	local    !difc_1  22571.96264   min 22500 max 22650
+	local    !difa_1 -0.01750		   	    min -10  max 10	
+	local    !difb_1 -5.83330		        min -10   max 5
+	TOF_x_axis_calibration_POWGEN(@,=d0_1;,
+								  @,=difc_1;,
+								  @,=difa_1;,
+								  @,=difb_1;)
+	
+    POWGEN_instrument_2						   '2019B values in below
+    local   !sig0 -36.48037 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
+    local   !sig1  44.86277 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
+    local   !sig2 -0.22180 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
+    local   !sig3  1.32642 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
+    local   !gam0 -1.45221 min -20 max 20      'gam0 -11.17295_0.33002 min -20 max 20   
+    local   !gam1  14.40400 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
+    local   !gam2 -1.76409 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
+            
+    GSAS_btb
+    local   !alpha0  152.73005 min 0 max 250    'alpha0 -95.16910_1.07001 min -150 max 100
+    local   !alpha1 -31.59878 min -100 max 100  'alpha1  41.69600_0.78367 min -100 max 100
+    local   !alpha2 -14.38509 min -100 max 100  'alpha1  41.69600_0.78367 min -100 max 100
+    local   !beta0 -62.66207 min -100 max 0     'beta0  73.08348_0.29513 min -100 max 100 
+    local   !beta1  16.38983 min -100 max 100   'beta1 -2.68722_0.05497 min -100 max 100  
+
+"""
+
+    else:
+        param_lines = """	 local    d0_1    9.32610	  	min -20  max 20 
+	local    difc_1  22571.96329	min 22500 max 22650
+	local    difa_1  3.29809		min -10  max 10	
+	local    difb_1 -1.40727		min -5 max 5 
+	TOF_x_axis_calibration_POWGEN(@,=d0_1;,
+										   @,=difc_1;,
+										   @,=difa_1;,
+										   @,=difb_1;)
+	
+
+    POWGEN_instrument_2						  '2019B values in below
+    local   sig0 -36.48037 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
+    local   sig1  44.86277 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
+    local   sig2 -0.22180 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
+    local   sig3  1.32642 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
+    local   gam0 -1.45221 min -20 max 20      'gam0 -11.17295_0.33002 min -20 max 20   
+    local   gam1  14.40400 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
+    local   gam2 -1.76409 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
+            
+    GSAS_btb
+    local   alpha0  152.73005 min 0 max 250   'alpha0 -95.16910_1.07001 min -150 max 100
+    local   alpha1 -31.59878 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+    local   alpha2 -14.38509 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+    local   beta0 -62.66207 min -100 max 0    'beta0  73.08348_0.29513 min -100 max 100 
+    local   beta1  16.38983 min -100 max 100  'beta1 -2.68722_0.05497 min -100 max 100  
+
+"""
     POWGEN_lines =  f"""\'----------------------------------------### Defining data sets ###----------------------------------------
 #define POWGEN_bank2_HR     #define PZT
 
 \'------------------------------------ ### Main refinement block ### ------------------------------------
 \'------------------------------------ ### Bank 2 Refinement ### ----------------------------------------
 
-\' bank 2 CWL = 1.5 A
+\'bank 2 CWL = 1.5 A
 \'Auto_T(0.00001)
 #ifdef POWGEN_bank2_HR  \' CW 1.5
-xdd "{xdd_winpath}" xye_format
-
-r_wp  4.26657241 r_exp  1.21296252 r_p  4.26050189 r_wp_dash  11.1422731 r_p_dash  13.383831 r_exp_dash  3.16768554 weighted_Durbin_Watson  0.418282357 gof  3.51748082
+xdd "{xdd_winpath}"
+    r_wp  0.00 r_exp  0.00 r_p  0.00 r_wp_dash  0.00 r_p_dash  0.00 r_exp_dash  0.00 weighted_Durbin_Watson  0.00 gof  0.00
 	NeutronDiffraction   \' TOF neutron diffraction data         
 	scale_pks = D_spacing^pow;  \' Scale peak intensity as
-	bkg   @  19.7109896` -8.98924502`  3.17541401`  0.495459169` -0.454497106` -0.0348046453` -0.822973658`
+    bkg   @  14.048056` -6.61727545`  2.9504521` -0.5453947`  0.965912817` -0.365159705`  0.114676395`  0.0222332242` -0.0315144216` -0.256784311` -0.146714196`  0.142224656` -0.299421417`  0.031692733`  0.147907249`
     start_X {start_finish_X[0]}
     finish_X {start_finish_X[1]}
 	
-	local    !d0_1    9.32610_1.56688	    min -20  max 20 
-	local    !difc_1  22571.96329_1.29489   min 22500 max 22650
-	local    difa_1  1.34602`		   	    min -10  max 10	
-	local    difb_1 -4.35349`		        min -5   max 5
-	TOF_x_axis_calibration_POWGEN(@,=d0_1;,
-								  @,=difc_1;,
-								  @,=difa_1;,
-								  @,=difb_1;)
-	
-
-	POWGEN_instrument_2										  \'2019B values in below
-	local   !sig0 -69.01185 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
-	local   !sig1  71.36388 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
-	local   !sig2 -3.87115 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
-	local   !sig3  14.47384 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
-	local   !gam0  19.43787 min -20 max 20     'gam0 -11.17295_0.33002 min -20 max 20   
-	local   !gam1  5.14586 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
-	local   !gam2  12.54013 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
-			
-	GSAS_btb
-	local   !alpha0  128.45983 min 0 max 150 'alpha0 -95.16910_1.07001 min -150 max 100
-	local   !alpha1 -12.92398 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
-	local   !alpha2 -10.66430 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
-	local   !beta0 -94.61370 min -100 max 0  'beta0  73.08348_0.29513 min -100 max 100 
-	local   !beta1  13.33492 min -100 max 100   'beta1 -2.68722_0.05497 min -100 max 100  
+{param_lines}
 
 \'------------------------------------ ### STR BLOCK ### ----------------------------------------
 
@@ -66,7 +109,7 @@ r_wp  4.26657241 r_exp  1.21296252 r_p  4.26050189 r_wp_dash  11.1422731 r_p_das
     return POWGEN_lines
 
 
-def hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line):
+def hrpd_inp_lines(xdd_winpath, start_finish_X):
     HRPD_lines = f"""\'----------------------------------------### Defining data sets ###----------------------------------------
 #define use_data 
 #ifdef use_data
@@ -81,11 +124,11 @@ xdd filename_bs xye_format
     local !neutron 1 local !xray 0 
     neutron_data
     r_wp 0.0
-    {TOF_x_axis_calibration}
+    TOF_x_axis_calibration(t0_hrpd_bs,-49.37818`,!difc_hrpd_bs, 48255.09936_0.61297, difa_hrpd_bs,  15.23076`)
     local !bank_two_theta 168.567 
     local !mu  0.07076 
     local !fixb  0.0 min -10 max 10 
-    {background_line}
+    bkg  @  1.23166856` -0.0124816464`  0.209502581` -0.119357101` -0.0364802546` -0.0805659581`  0.280382189` -0.180514454`  0.157958349` -0.129704358`  0.215427676`  0.0027121254`
     
     scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); \'fixb correction local to each bank
     weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
@@ -166,6 +209,7 @@ def get_str_info(str_path, str_type):
             'strain' for an isodistort topas str file with strain modes
         
     Returns:
+    ----------
     a,b,c,alpha,beta,gamma: list of floats
     sg_o = spacegroup & origin & HM_name: list of ints and string
     '''
@@ -218,6 +262,47 @@ def get_str_info(str_path, str_type):
     latparams = [alat, blat, clat, alpha, beta, gamma]
     sg_o = [sg, origin, sg_name]
     return latparams, sg_o
+
+
+def get_pawley_latparams_easy_grab(file):
+    '''
+    Parameters
+    ----------
+    file: str
+        path to the topas out file
+        
+    Returns:
+        list of lattice parameters: [a,b,c,alpha,beta,gamma]
+
+    Purpose:
+        This function is used to retrieve lattice parameters refined by topas
+
+    Important Note:
+        only works for my easy grab reporting setup
+    '''
+    in_lines = []
+    with open(file,'r') as f:
+        in_lines = f.readlines()
+        
+    print(f'read lattice parameters from : {file}')
+    
+    easy_grab_index = 0
+    for i in range(len(in_lines)):
+        if "Easy grab" in in_lines[i]:
+            easy_grab_index = i
+            break
+    
+
+    a = float(in_lines[easy_grab_index+1].strip().strip('`').split(':')[-1])
+    b = float(in_lines[easy_grab_index+2].strip().strip('`').split(':')[-1])
+    c = float(in_lines[easy_grab_index+3].strip().strip('`').split(':')[-1])
+    alpha = float(in_lines[easy_grab_index+4].strip().strip('`').split(':')[-1])
+    beta = float(in_lines[easy_grab_index+5].strip().strip('`').split(':')[-1])
+    gamma = float(in_lines[easy_grab_index+6].strip().strip('`').split(':')[-1])
+
+    refined_latparams = [a, b, c, alpha, beta, gamma]
+
+    return refined_latparams
 
 
 def count_refinable_parameters_in_topas_strs(topas_str_path):
@@ -389,19 +474,24 @@ def find_p1_sgt_members(subgroup_cifs_path):
 
 
 # ------ Generate latparam and site lines ------
-def generate_pawley_lattice_lines(latparams, spacegroup_origin):
+def generate_pawley_lattice_lines(latparams, spacegroup_origin, peakshape_lines):
     '''
     Parameters
     ----------
     latparams: list
-        [spacegroup:int, a, b, c, alpha, beta, gamma, originchoice:int]
+        [a, b, c, alpha, beta, gamma]
+    spacegroup_origin: list
+        [spacegroup: int, origin_choice: int]
+    peakshape_lines: str
+        a string defining the peakshape (has to be included in this section)
 
     Returns:
+    ----------
     topas_latparam_lines: list of strings that can be input into a topas input file for pawley lattice parameter refinement
     '''
     sg = spacegroup_origin[0]
     # initialize topas_latparam_lines
-    topas_latparam_lines = ['sg', 'a', 'b', 'c','alpha','beta','gamma']
+    latparam_lines = ['a', 'b', 'c','alpha','beta','gamma', 'sg']
 
     # define ranges of bravais lattices
     triclinic_range = np.arange(1,3).tolist()
@@ -417,74 +507,138 @@ def generate_pawley_lattice_lines(latparams, spacegroup_origin):
     cubic_range = np.arange(195,231).tolist()
 
     # set spacegroup:origin_choice
-    topas_latparam_lines[0] = f'space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}'
+    latparam_lines[6] = f'space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}'
 
     # set pawley refinement lines based on spacegroup symmetry
     if sg in triclinic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[1]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al alph {latparams[3]}'
-        topas_latparam_lines[5] = f'be bet {latparams[4]}'
-        topas_latparam_lines[6] = f'ga gam {latparams[5]}'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b lpb {latparams[1]} vc'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al alph {latparams[3]} vc'
+        latparam_lines[4] = f'be bet {latparams[4]} vc'
+        latparam_lines[5] = f'ga gam {latparams[5]} vc'
 
     if sg in monoclinic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[1]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be bet {latparams[4]}'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b lpb {latparams[1]} vc'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be bet {latparams[4]} vc'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in orthorhombic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[1]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b lpb {latparams[1]} vc'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in tetragonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in trigonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 120.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
 
     if sg in hexagonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[2]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 120.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} vc'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
 
     if sg in cubic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[0]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c = lpa; : 0'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[0]} vc'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c = lpa; : 0'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
 
-    return topas_latparam_lines
+    hkl_is_lines = f"""
+    hkl_Is
+    {peakshape_lines} 
+        scale @ 1
+        r_bragg  0
+        
+        {latparam_lines[0]}
+        {latparam_lines[1]}
+        {latparam_lines[2]}
+        {latparam_lines[3]}
+        {latparam_lines[4]}
+        {latparam_lines[5]}
+        macro vc {{ val_on_continue = Val+Val*Rand(-.1,.1); }}
+        'Easy grab reporting
+        local !latparam_a = Get(a); : 0
+        local !latparam_b = Get(b); : 0
+        local !latparam_c = Get(c); : 0
+        local !latparam_al = Get(al); : 0
+        local !latparam_be = Get(be); : 0
+        local !latparam_ga = Get(ga); : 0
+
+        {latparam_lines[6]}
+"""
+    return hkl_is_lines
 
 
-def generate_lattice_parameter_lines_with_vc_macro(latparams, vc_lp_matrix):
+def generate_pawley_latparam_lines_with_strain_modes(isodistort_str_file, spacegroup_origin, peakshape_lines):
+    file_lines = []
+    with open(isodistort_str_file, 'r') as f:
+        file_lines = f.readlines()
+    str_lines = []
+    for i in range(len(file_lines)):
+        if '\tstr\n' in file_lines[i]:
+            file_lines[i] = '\thkl_Is\n'
+
+        if 'space_group' in file_lines[i]:
+            file_lines[i] = f'\t\t{peakshape_lines}\n'
+
+        if 'prm  !s' in file_lines[i]:
+            sline = file_lines[i]
+            sline = sline.replace('!s', 's')
+            sline = sline.replace('min','vc min')
+            file_lines[i] = sline
+
+        if 'unitless parent cell strains' in file_lines[i]:
+            str_lines.append('\n\t\tmacro vc { val_on_continue = Val+Val*Rand(-.1,.1); }\n\n')
+
+        # BREAKS LOOP WHEN ENCOUNTERING END OF LATTICE SECTION
+        if '#endif' in file_lines[i]:
+            str_lines.append('\t\t#endif\n\n')
+            str_lines.append('\t\tscale @ 1\n')
+            str_lines.append(f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n')
+            break
+
+        str_lines.append(file_lines[i])
+    
+    macro_lines = []
+    for i in range(len(file_lines)):
+        if '{{{macros ' in file_lines[i]:
+            for j in range(i,len(file_lines)):
+                macro_lines.append(file_lines[j])
+
+    return str_lines, macro_lines
+
+
+def generate_lattice_parameter_lines_with_vc_macro(latparams, spacegroup_origin, vc_lp_matrix):
     '''
     Parameters
     ----------
     latparams: list
-        [spacegroup:int, a, b, c, alpha, beta, gamma, originchoice:int]
+        [a, b, c, alpha, beta, gamma]
+    spacegroup_origin: list
+        [spacegroup: int, origin_choice: int]
     
     vc_lp_matrix: 2d list of float
             vc macro: val on continue macro in topas
@@ -496,9 +650,9 @@ def generate_lattice_parameter_lines_with_vc_macro(latparams, vc_lp_matrix):
     Returns:
     topas_latparam_lines: list of strings that can be input into a topas input file for pawley lattice parameter refinement using val on continue
     '''
-    sg = latparams[0]
+    sg = spacegroup_origin[0]
     # initialize topas_latparam_lines
-    topas_latparam_lines = ['sg', 'a', 'b', 'c','alpha','beta','gamma']
+    latparam_lines = ['a', 'b', 'c','alpha','beta','gamma', 'sg']
 
     # define ranges of bravais lattices
     triclinic_range = np.arange(1,3).tolist()
@@ -514,67 +668,67 @@ def generate_lattice_parameter_lines_with_vc_macro(latparams, vc_lp_matrix):
     cubic_range = np.arange(195,231).tolist()
 
     # set spacegroup:origin_choice
-    topas_latparam_lines[0] = f'space_group {latparams[0]}:{latparams[7]}'
+    latparam_lines[6] = f'space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}'
 
     # set pawley refinement lines based on spacegroup symmetry
     if sg in triclinic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al alph {latparams[4]} vcalpha min {vc_lp_matrix[3][2]} max {vc_lp_matrix[3][3]}'
-        topas_latparam_lines[5] = f'be bet {latparams[5]} vcbeta min {vc_lp_matrix[4][2]} max {vc_lp_matrix[4][3]}'
-        topas_latparam_lines[6] = f'ga gam {latparams[6]} vcgamma min {vc_lp_matrix[5][2]} max {vc_lp_matrix[5][3]}'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al alph {latparams[4]} vcalpha min {vc_lp_matrix[3][2]} max {vc_lp_matrix[3][3]}'
+        latparam_lines[4] = f'be bet {latparams[5]} vcbeta min {vc_lp_matrix[4][2]} max {vc_lp_matrix[4][3]}'
+        latparam_lines[5] = f'ga gam {latparams[6]} vcgamma min {vc_lp_matrix[5][2]} max {vc_lp_matrix[5][3]}'
 
     if sg in monoclinic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be bet {latparams[5]} vcbeta min {vc_lp_matrix[4][2]} max {vc_lp_matrix[4][3]}'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be bet {latparams[5]} vcbeta min {vc_lp_matrix[4][2]} max {vc_lp_matrix[4][3]}'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in orthorhombic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b lpb {latparams[2]} vcb min {vc_lp_matrix[1][2]} max {vc_lp_matrix[1][3]}'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in tetragonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
 
     if sg in trigonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 120.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
 
     if sg in hexagonal_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 120.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[3]} vcc min {vc_lp_matrix[2][2]} max {vc_lp_matrix[2][3]}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
 
     if sg in cubic_range:
-        topas_latparam_lines[1] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
-        topas_latparam_lines[2] = f'b = lpa; : 0'
-        topas_latparam_lines[3] = f'c = lpa; : 0'
-        topas_latparam_lines[4] = f'al 90.0'
-        topas_latparam_lines[5] = f'be 90.0'
-        topas_latparam_lines[6] = f'ga 90.0'
+        latparam_lines[0] = f'a lpa {latparams[1]} vca min {vc_lp_matrix[0][2]} max {vc_lp_matrix[0][3]}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c = lpa; : 0'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
     
 
-    return topas_latparam_lines
+    return latparam_lines
 
 
 def generate_site_lines(site_info, refine_beq=False, beq_dict=None):
@@ -886,7 +1040,7 @@ def get_basis_transformation_matirx(cif_path):
 
 # ------ perturb latparms ------
 
-def perturb_latparams(latparams, spacegroup_origin, ran_array):
+def perturb_latparams(latparams, spacegroup_origin, ran_array_lat, ran_array_angle):
     # takes three random numbers between 0.999 & 1.001 to multiply lattice parameters a, b, c 
     # produces a small purturbation of the lattice parameters
     spacegroup = spacegroup_origin[0]
@@ -899,60 +1053,59 @@ def perturb_latparams(latparams, spacegroup_origin, ran_array):
     # trigonal_hex_range = [143, 144, 145, 147, 149, 150, 151, 152, 153, 154, 156, 157, 158, 159, 162, 163, 164, 165]
     # trigonal_rhomb_range = [146, 148, 155, 160, 161, 166, 167]
     trigonal_range = np.arange(143, 168).tolist()
-
     hexagonal_range = np.arange(168,195).tolist()
     cubic_range = np.arange(195,231).tolist()
     
     if spacegroup in triclinic_range:
-        perturbed_a = latparams[0]*ran_array[0]
-        perturbed_b = latparams[1]*ran_array[1]
-        perturbed_c = latparams[2]*ran_array[2]
-        perturbed_alpha = latparams[3]*ran_array[3]
-        perturbed_beta = latparams[4]*ran_array[4]
-        perturbed_gamma = latparams[5]*ran_array[5]
+        perturbed_a = latparams[0]+ran_array_lat[0]
+        perturbed_b = latparams[1]+ran_array_lat[1]
+        perturbed_c = latparams[2]+ran_array_lat[2]
+        perturbed_alpha = latparams[3]+ran_array_angle[0]
+        perturbed_beta =  latparams[4]+ran_array_angle[1]
+        perturbed_gamma = latparams[5]+ran_array_angle[2]
 
     if spacegroup in monoclinic_range:
-        perturbed_a = latparams[0]*ran_array[0]
-        perturbed_b = latparams[1]*ran_array[1]
-        perturbed_c = latparams[2]*ran_array[2]
+        perturbed_a = latparams[0]+ran_array_lat[0]
+        perturbed_b = latparams[1]+ran_array_lat[1]
+        perturbed_c = latparams[2]+ran_array_lat[2]
         perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]*ran_array[3]
+        perturbed_beta = latparams[4]+ran_array_angle[1]
         perturbed_gamma = latparams[5]
 
     if spacegroup in orthorhombic_range:
-        perturbed_a = latparams[0]*ran_array[0]
-        perturbed_b = latparams[1]*ran_array[1]
-        perturbed_c = latparams[2]*ran_array[2]
+        perturbed_a = latparams[0]+ran_array_lat[0]
+        perturbed_b = latparams[1]+ran_array_lat[1]
+        perturbed_c = latparams[2]+ran_array_lat[2]
         perturbed_alpha = latparams[3]
         perturbed_beta = latparams[4]
         perturbed_gamma = latparams[5]
 
     if spacegroup in tetragonal_range:
-        perturbed_a = latparams[0]*ran_array[0]
+        perturbed_a = latparams[0]+ran_array_lat[0]
         perturbed_b = perturbed_a
-        perturbed_c = latparams[2]*ran_array[2]
+        perturbed_c = latparams[2]+ran_array_lat[2]
         perturbed_alpha = latparams[3]
         perturbed_beta = latparams[4]
         perturbed_gamma = latparams[5]
 
     if spacegroup in trigonal_range:
-        perturbed_a = latparams[0]*ran_array[0]
+        perturbed_a = latparams[0]+ran_array_lat[0]
         perturbed_b = perturbed_a
-        perturbed_c = latparams[2]*ran_array[2]
+        perturbed_c = latparams[2]+ran_array_lat[2]
         perturbed_alpha = latparams[3]
         perturbed_beta = latparams[4]
         perturbed_gamma = latparams[5]
 
     if spacegroup in hexagonal_range:
-        perturbed_a = latparams[0]*ran_array[0]
+        perturbed_a = latparams[0]+ran_array_lat[0]
         perturbed_b = perturbed_a
-        perturbed_c = latparams[2]*ran_array[2]
+        perturbed_c = latparams[2]+ran_array_lat[2]
         perturbed_alpha = latparams[3]
         perturbed_beta = latparams[4]
         perturbed_gamma = latparams[5]
 
     if spacegroup in cubic_range:
-        perturbed_a = latparams[0]*ran_array[0]
+        perturbed_a = latparams[0]+ran_array_lat[0]
         perturbed_b = perturbed_a
         perturbed_c = perturbed_a
         perturbed_alpha = latparams[3]
@@ -1276,7 +1429,7 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
     return all_mode_lines
 
 
-def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
+def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
     '''
     Parameters
     ----------
@@ -1288,6 +1441,8 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
         Line to describe the peakshape in topas
     random_strain: np array 
         shape=[6], samples of np.random.uniform between min and max values for strain modes 
+    custom_latparams: list of floats
+        [a,b,c,alpha,beta,gamma] : use if wanting to supply custom lattice parameters other than what is found in the isodistort str file
     refine_beq: bool
         if True: 'beq' in mode_dependent_sites section will change to 'beq bval_{atom_type}'
         if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
@@ -1307,13 +1462,19 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
         Ex: for the first of 3 phases :: wt_dets(1,3,0) where the 0 in the third position just reports the wt% after TOPAS runs
     phase_count: int - Default: None
         an integer to append to beq variable names for multiphase inputs where atoms types are the same
+
     
     Returns:
+    ----------
         List of strings: for structure perturbation using strain modes and symmetry mode analysis for writing into a topas input file
 
     Purpose:
-        This function is used to modify the strain modes, mode amplitudes and mode_dependent_sites sections in the topas str file and return them
-        in a form for writing to a topas input file
+    ----------
+        This function is used to create perturbations of
+        1) lattice parameters through strain mode amplitudes or custom lattice parameters, 
+        2) atomic positions through mode amplitudes and mode_dependent_sites sections,
+        3) thermal broadening of peaks in diffraction pattern through beq (topas isotropic thermal parameters)
+
     '''
 
     file_lines = []
@@ -1401,70 +1562,94 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
 
 
     # ----------------------------------------------------------------------------------------
-    #* Augment strain mode lines
+    #* Augment strain mode lines OR supply custom lattice parameters
     # ----------------------------------------------------------------------------------------
     # insert peak shape line in str_strain
-    str_strain.insert(4, f'\t\t{peak_shape_line}\n')
+    # str_strain.insert(4, f'\t\t{peak_shape_line}\n')
+    str_strain.insert(4, f'\t\tpeak_type pv\n\t\tTOF_CS_L (@ , 581.69638, difc_1)\n')
     str_strain.insert(5, f'\t\tr_bragg 0.0\n')
     
-    if multiphase==False:
+
+    # section for using custom latparams 
+    if custom_latparams != None:
+        if multiphase == True:
+            str_strain.insert(6, f'{wt_dets_macro}\n')
         for i in range(len(str_strain)):
             if 'space_group' in str_strain[i]:
                 str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+            # comment out defining strain modes to use classic latparams method
+            if '#define refine_strain_modes' in str_strain[i]:
+                str_strain[i] =  "\t\t'#define refine_strain_modes 'comment out this line for a traditional supercell-parameter refinement."
 
-            if '#ifdef refine_strain_modes' in str_strain[i]:
-                random_count = 0
-                for j in range(i+1, len(str_strain)):
-                    split = str_strain[j].split()
-                    # print(split)
-                    if len(split) == 0:
+            if '#else' in str_strain[i]:
+                j = i+1
+                latcount = 0
+                for j in range(j, len(str_strain)):
+                    if '#endif' in str_strain[j]:
                         break
-                    split = str_strain[j].split('0.00000')
-                    # print(split)
-                    newline = f'{split[0]}{random_strain[random_count]} {split[1]}'
-                    random_count += 1
-                    # print(newline)
-                    str_strain[j] = newline
-                    # print(str_strain[j])
+                    split = str_strain[j].split()
+                    str_strain[j] = f'\t\t\t{split[0]}    {custom_latparams[latcount]:.6f}\n' 
+                    latcount +=1
+    else:
+        # section for using strain modes instead of classic latparams method 
+        if multiphase==False:
+            for i in range(len(str_strain)):
+                if 'space_group' in str_strain[i]:
+                    str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+                if '#ifdef refine_strain_modes' in str_strain[i]:
+                    random_count = 0
+                    for j in range(i+1, len(str_strain)):
+                        split = str_strain[j].split()
+                        # print(split)
+                        if len(split) == 0:
+                            break
+                        split = str_strain[j].split('0.00000')
+                        # print(split)
+                        newline = f'{split[0]}{random_strain[random_count]} {split[1]}'
+                        random_count += 1
+                        # print(newline)
+                        str_strain[j] = newline
+                        # print(str_strain[j])
+                    
+                    break
+        
+        if multiphase == True:
+            str_strain.insert(6, f'{wt_dets_macro}\n')
+            for i in range(len(str_strain)):
+                if 'space_group' in str_strain[i]:
+                    str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+                if '#ifdef refine_strain_modes' in str_strain[i]:
+                    random_count = 0
+                    for j in range(i+1, len(str_strain)):
+                        split = str_strain[j].split()
+                        # print(split)
+                        if len(split) == 0:
+                            break
+                        split = str_strain[j].split('0.00000')
+                        # print(split)
+                        local_split = split[0].replace('prm', 'local')
+                        newline = f'{local_split}{random_strain[0][random_count]} {split[1]}'
+                        random_count += 1
+                        # print(newline)
+                        str_strain[j] = newline
+                        # print(str_strain[j])
                 
-                break
-    
-    if multiphase == True:
-        str_strain.insert(6, f'\t\t{wt_dets_macro}\n')
-        for i in range(len(str_strain)):
-            if 'space_group' in str_strain[i]:
-                str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+                if 'unitless parent cell strains' in str_strain[i]:
+                    for j in range(i+1, len(str_strain)):
+                        if len(str_strain[j].split()) == 0:
+                            break
+                        newline = str_strain[j].replace('prm', 'local')
+                        str_strain[j] = newline
 
-            if '#ifdef refine_strain_modes' in str_strain[i]:
-                random_count = 0
-                for j in range(i+1, len(str_strain)):
-                    split = str_strain[j].split()
-                    # print(split)
-                    if len(split) == 0:
-                        break
-                    split = str_strain[j].split('0.00000')
-                    # print(split)
-                    local_split = split[0].replace('prm', 'local')
-                    newline = f'{local_split}{random_strain[0][random_count]} {split[1]}'
-                    random_count += 1
-                    # print(newline)
-                    str_strain[j] = newline
-                    # print(str_strain[j])
-            
-            if 'unitless parent cell strains' in str_strain[i]:
-                for j in range(i+1, len(str_strain)):
-                    if len(str_strain[j].split()) == 0:
-                        break
-                    newline = str_strain[j].replace('prm', 'local')
-                    str_strain[j] = newline
-
-            if 'straincell(' in str_strain[i]:
-                newline = str_strain[i].replace('straincell', 'straincell_local')
-                str_strain[i] = newline
-            
-            if 'celltransform(' in str_strain[i]:
-                newline = str_strain[i].replace('celltransform', 'celltransform_local')
-                str_strain[i] = newline
+                if 'straincell(' in str_strain[i]:
+                    newline = str_strain[i].replace('straincell', 'straincell_local')
+                    str_strain[i] = newline
+                
+                if 'celltransform(' in str_strain[i]:
+                    newline = str_strain[i].replace('celltransform', 'celltransform_local')
+                    str_strain[i] = newline
 
 
     # ----------------------------------------------------------------------------------------
@@ -1617,75 +1802,12 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
     return all_mode_lines
 
 
-def generate_latparam_lines_with_strain_modes(isodistort_str_file, spacegroup_origin, TOF_sample_peakshape):
-    file_lines = []
-    with open(isodistort_str_file, 'r') as f:
-        file_lines = f.readlines()
-    str_lines = []
-    for i in range(len(file_lines)):
-        if 'space_group' in file_lines[i]:
-            file_lines[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n\t\t{TOF_sample_peakshape}\n'
-
-        if 'prm  !s' in file_lines[i]:
-            sline = file_lines[i]
-            sline = sline.replace('!s', 's')
-            sline = sline.replace('min','vc min')
-            file_lines[i] = sline
-
-        if 'unitless parent cell strains' in file_lines[i]:
-            str_lines.append('\n\t\tmacro vc { val_on_continue = Val*Rand(-1.1,1.1); }\n\n')
-
-        if 'scale' in file_lines[i]:
-            file_lines[i] = '\t\tscale @ 1.0\n\n'
-        str_lines.append(file_lines[i])
-    
-    return str_lines
-
-
-def generate_latparam_lines_with_strain_modes_V2(isodistort_str_file, spacegroup_origin, TOF_sample_peakshape):
-    file_lines = []
-    with open(isodistort_str_file, 'r') as f:
-        file_lines = f.readlines()
-    str_lines = []
-    for i in range(len(file_lines)):
-        if '\tstr\n' in file_lines[i]:
-            file_lines[i] = '\thkl_Is\n'
-
-        if 'space_group' in file_lines[i]:
-            file_lines[i] = f'\t\t{TOF_sample_peakshape}\n'
-
-        if 'prm  !s' in file_lines[i]:
-            sline = file_lines[i]
-            sline = sline.replace('!s', 's')
-            sline = sline.replace('min','vc min')
-            file_lines[i] = sline
-
-        if 'unitless parent cell strains' in file_lines[i]:
-            str_lines.append('\n\t\tmacro vc { val_on_continue = Val*Rand(-1.1,1.1); }\n\n')
-
-        if '#endif' in file_lines[i]:
-            str_lines.append('\t\t#endif\n\n')
-            str_lines.append('\t\tscale @ 1\n')
-            str_lines.append(f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n')
-            break
-
-        str_lines.append(file_lines[i])
-    
-    macro_lines = []
-    for i in range(len(file_lines)):
-        if '{{{macros ' in file_lines[i]:
-            for j in range(i,len(file_lines)):
-                macro_lines.append(file_lines[j])
-
-    return str_lines, macro_lines
-
-
 def generate_multiphase_wt_percent_lines(num_phases, topas_scale_value, random_weight):
 
     if num_phases == 2:
         xdd_wt_percent_lines = f"""\tprm scale1 {topas_scale_value}
     prm w1 = 100 - w2; : 0.0
-    prm w2 {random_weight}
+    prm w2 {random_weight[0]}
 
 """
     if num_phases == 3:
@@ -1742,6 +1864,7 @@ def write_inp_for_ML(topas_input_file, latparams, cif_spacegroup_and_origin, bac
         Path and Name of the output file for the calculated xy diffraction pattern
 
     Returns:
+    ----------
         Returns nothing, but writes the TOPAS input file
     '''
 
@@ -1838,20 +1961,18 @@ def write_inp_for_ML(topas_input_file, latparams, cif_spacegroup_and_origin, bac
     return None 
 
 
-def write_inp_for_ML_with_strain_modes(beamline_choice, topas_input_file, strain_and_distortion_modes, background_line, TOF_x_axis_calibration, start_finish_X, xdd_winpath, hkl_out_file=None, hkl_scaled_out_file=None, xy_out_file=None):
+def write_inp_for_ML_with_strain_modes(beamline_choice:str, topas_input_file:str, strain_and_distortion_modes:list, start_finish_X:list, xdd_winpath:str, xy_out_file:str=None, dy_out_file:str=None, hkl_out_file:str =None, hkl_scaled_out_file:str=None):
 
     '''
     Parameters
     ----------
+    beamline_choice: str
+        Name of the beamline from experiment.\n
+        Choose: POWGEN, HRPD, 
     topas_input_file_name: str
         Name of the INP file to write
     strain_and_distortion_modes: list of strings
         Defines the str section of topas input, the strain modes for lattice parameter perturbation,  the distortion modes definitions, and the macros for strain modes
-    background_line: fstring
-        the background line from a good pawley fit of the experiment (makes the background consistent for all simulated powder patterns) 
-        (if the background is the same, the differences in the powder patterns are purely from differences of structure)
-    TOF_x_axis_calibration: fstring
-        TOF_x_axis_calibration line from a good pawley fit of the experiment (same reason as background_line)
     start_finish_X: list of floats
         start and finish of TOF range for Topas
     xdd_winpath: str
@@ -1861,10 +1982,13 @@ def write_inp_for_ML_with_strain_modes(beamline_choice, topas_input_file, strain
     hkl_scaled_out_file: str
         Path and name of the output file for topas scaled hkl intensities
     xy_out_file: str
-        Path and Name of the output file for the calculated xy diffraction pattern
-
+        Path and Name of the output file for the calculated xy diffraction pattern with TOF x axis
+    dy_out_file: str
+        Path and Name of the output file for the calculated xy diffraction pattern with d-spacing x axis
+        
     Returns:
-        Returns nothing, but writes the TOPAS input file
+    ----------
+    Returns nothing, but writes the TOPAS input file
     '''
 
     refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
@@ -1880,7 +2004,7 @@ r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weigh
     global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
 prm !pow  4
 """
-    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line)
+    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X)
     POWGEN_lines = powgen_inp_lines(xdd_winpath, start_finish_X)
 
     #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
@@ -1890,6 +2014,10 @@ prm !pow  4
     if xy_out_file != None:
         output_lines_XYcalc = f""" 
         Out_X_Ycalc(\"{xy_out_file}\")
+"""
+    if dy_out_file != None:
+        output_lines_DYcalc = f""" 
+        Out_d_from_tof_bragg_dayton("{dy_out_file}", d0_1, difc_1, difa_1)
 """
     if hkl_out_file != None:
         output_lines_hkl = f""" 
@@ -1921,6 +2049,8 @@ prm !pow  4
 
         if xy_out_file != None:
             f.write(output_lines_XYcalc)
+        if dy_out_file != None:
+            f.write(output_lines_DYcalc)
         if hkl_out_file != None:
             f.write(output_lines_hkl)
         if hkl_scaled_out_file != None:
@@ -1932,20 +2062,18 @@ prm !pow  4
     return None
 
 
-def write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, topas_input_file, strain_and_distortion_modes, background_line, TOF_x_axis_calibration, start_finish_X, xdd_winpath, xdd_wt_percent_lines = None, xy_out_file = None, hkl_out_file=None, hkl_scaled_out_file=None):
+def write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, topas_input_file, strain_and_distortion_modes, start_finish_X, xdd_winpath, xdd_wt_percent_lines = None, xy_out_file = None, dy_out_file=None, hkl_out_file=None, hkl_scaled_out_file=None):
 
     '''
     Parameters
     ----------
+    beamline_choice: str
+        Name of the beamline from experiment
+        Choose: POWGEN, HRPD, 
     topas_input_file_name: str
         Name of the INP file to write
     strain_and_distortion_modes: list of strings
         Defines the str section of topas input, the strain modes for lattice parameter perturbation,  the distortion modes definitions, and the macros for strain modes
-    background_line: fstring
-        the background line from a good pawley fit of the experiment (makes the background consistent for all simulated powder patterns) 
-        (if the background is the same, the differences in the powder patterns are purely from differences of structure)
-    TOF_x_axis_calibration: fstring
-        TOF_x_axis_calibration line from a good pawley fit of the experiment (same reason as background_line)
     start_finish_X: list of floats
         start and finish of TOF range for Topas
     xdd_winpath: str
@@ -1958,6 +2086,7 @@ def write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, topas_input_f
         Path and Name of the output file for the calculated xy diffraction pattern
 
     Returns:
+    -----------
         Returns nothing, but writes the TOPAS input file
     '''
 
@@ -1974,7 +2103,7 @@ r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weigh
     global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
 prm !pow  4
 """
-    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line)
+    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X)
     POWGEN_lines = powgen_inp_lines(xdd_winpath, start_finish_X)
 
     #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
@@ -1985,6 +2114,10 @@ prm !pow  4
         output_lines_XYcalc = f""" 
         Out_X_Ycalc(\"{xy_out_file}\")
 
+"""
+    if dy_out_file != None:
+        output_lines_DYcalc = f""" 
+        Out_d_from_tof_bragg_dayton("{dy_out_file}", d0_1, difc_1, difa_1)
 """
     if hkl_out_file != None:
         output_lines_hkl = f""" 
@@ -2024,6 +2157,8 @@ prm !pow  4
 
         if xy_out_file != None:
             f.write(output_lines_XYcalc)
+        if dy_out_file != None:
+            f.write(output_lines_DYcalc)
         if hkl_out_file != None:
             f.write(output_lines_hkl)
         if hkl_scaled_out_file != None:
@@ -2038,7 +2173,7 @@ prm !pow  4
 
 
 # ------ Write Topas INP's for Pawley Refinements ------
-def write_inp_for_pawley(inp_filename, cif_name, topas_latparam_lines, TOF_x_axis_calibration, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, xy_out_file):
+def write_inp_for_pawley_BISN2O7(inp_filename, cif_name, topas_latparam_lines, TOF_x_axis_calibration, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, xy_out_file):
     '''
     Parameters
     ----------
@@ -2060,6 +2195,10 @@ def write_inp_for_pawley(inp_filename, cif_name, topas_latparam_lines, TOF_x_axi
         Name of the output file for the hkl intensities
     simulated_xy_out: str
         Name of the output file for the calculated xy diffraction pattern
+
+    Returns:
+    -----------
+        Returns nothing, but writes the TOPAS input file
 
     '''
 
@@ -2454,7 +2593,7 @@ def write_inp_for_rietveld_with_vc_macro(inp_filename, use_symmetry_mode_analysi
     return None
 
 
-def write_exp_refinement_strain_modes_stage_1(inp_filename, use_vc_macro, TOF_x_axis_calibration, str_lines, macro_lines, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, hkl_scaled_out_file, xy_out_file):
+def write_exp_refinement_strain_modes_stage_1(beamline_choice, inp_filename, use_vc_macro, TOF_x_axis_calibration, str_lines, macro_lines, xdd_winpath, refinement_iterations, conv_criteria, start_finish_X, background_line, hkl_out_file=None, hkl_scaled_out_file=None, xy_out_file=None):
     '''
     Parameters
     ----------
@@ -2479,85 +2618,76 @@ def write_exp_refinement_strain_modes_stage_1(inp_filename, use_vc_macro, TOF_x_
     else: convergence_line = '\'continue_after_convergence'
 
     refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
-    iters  {refinement_iterations}
-    chi2_convergence_criteria {conv_criteria}
-    \'Auto_T(0.00001)  \' simulated annealing 
-    \'do_errors
-    no_LIMIT_warnings
-    {convergence_line}
-    r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
+iters  {refinement_iterations}
+chi2_convergence_criteria {conv_criteria}
+\'Auto_T(0.00001)  \' simulated annealing 
+\'do_errors
+\'no_LIMIT_warnings
+{convergence_line}
+r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
 
 """
 
     global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
-
+prm !pow  4
 """
+    HRPD_lines = hrpd_inp_lines(xdd_winpath, start_finish_X, TOF_x_axis_calibration, background_line)
+    POWGEN_lines = powgen_inp_lines(xdd_winpath, start_finish_X, refine_instrument_parameters=True)
 
-    # take variables from bkg, POWGEN_instrument_2, & GSAS_btb from topas output file in 02_pawley_on_P1 and put them in data_lines_1 and data_lines_2
-    # set these variables to not refine so we have consistent background and peakshape for all simulated xy files
-    data_lines_1 = f"""\'----------------------------------------### Defining data sets ###----------------------------------------
-    #define use_data 
-    #ifdef use_data
-    #define USE_BS    macro filename_bs    {{"{xdd_path}"}}
-    #endif
+    #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
 
-\'----------------------------------------### Main refinement block ###----------------------------------------
-    #ifdef USE_BS
-    xdd filename_bs xye_format
-        start_X {start_finish_x[0]}
-        finish_X {start_finish_x[1]}
-        local !neutron 1 local !xray 0 
-        neutron_data
-        r_wp  2.60439382
-        {TOF_x_axis_calibration} 
-        local !bank_two_theta 168.567 
-        local !mu  0.07076 
-        local !fixb  0.0 min -10 max 10 
-        bkg  @  1.82819531` -0.164089368`  0.0804921835` -0.064352384`  0.0885898809` -0.0846077489`  0.0900426227` -0.0977319011`  0.0878555271` -0.0448681901`  0.0326556039` -0.0128961147`
-        scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); 'fixb correction local to each bank
-        weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
-            x_calculation_step = Yobs_dx_at(Xo); convolution_step 4
-            TOF_LAM(0.001)
-            scale_pks = D_spacing^4;
-            scale_pks = Exp(-mu*2 D_spacing Sin(0.00872664626 two_theta));   'absorption correction local to each bank
-
-            #define peak1
-            #ifdef peak1
-                wifd_pkshape(!two_theta, =bank_two_theta;, !aprm, 2.50000, !tauf_2, 9.80744, !tauf_1, 0.43977, !tauf_0, 0.000, !taus_0, 25.27420, !taus_1, 2.66797, !t_eff, 144.41296, !hhh, 3.58595, !hhh_0, 11.61348)
-            #endif
-
-"""
-# str lines written here
+    #* STR SECTION, STRAIN MODES, AND SYMMETRY MODE LINES ARE WRITTEN HERE DURING FILE WRITING
     
-    output_lines_XYcalc = f""" 
-        'Out_X_Ycalc(\"{xy_out_file}\")
-"""
-    output_lines_hkl = f""" 
-        'Create_d_Ip_file_dayton(\"{hkl_out_file}\")
-        'Create_d_IScaled_file_dayton(\"{hkl_scaled_out_file}\")
+    if xy_out_file != None:
+        output_lines_XYcalc = f""" 
+        Out_X_Ycalc(\"{xy_out_file}\")
 
-        
-#endif
 """
-    usr_macros = f"""\'----------------------------------------### User defined macros ###----------------------------------------
+    if hkl_out_file != None:
+        output_lines_hkl = f""" 
+        Create_d_Ip_file_dayton(\"{hkl_out_file}\")
+        
+"""
+    if hkl_scaled_out_file != None:
+        output_lines_hkl_scaled = f""" 
+        Create_d_IScaled_file_dayton(\"{hkl_scaled_out_file}\")
+        
+"""
+
+    endif_line = '\n#endif\n'
+    usr_macros = """\'----------------------------------------### User defined macros ###----------------------------------------
 """
 
     with open(inp_filename, 'w') as f:
         f.write(refine_lines)
         f.write(global_lines)
-        f.write(data_lines_1)
+
+        if beamline_choice == "HRPD":
+            f.write(HRPD_lines)
+        elif beamline_choice == "POWGEN":
+            f.write(POWGEN_lines)
+        else:
+            raise Exception("Incorrect choice of beamline. Choose from: \nPOWGEN\nHRPD\n")
+        
         for i in range(len(str_lines)):
             f.write(str_lines[i])
-        f.write(output_lines_XYcalc)
-        f.write(output_lines_hkl)
+
+        if xy_out_file != None:
+            f.write(output_lines_XYcalc)
+        if hkl_out_file != None:
+            f.write(output_lines_hkl)
+        if hkl_scaled_out_file != None:
+            f.write(output_lines_hkl_scaled)
+            
+        f.write(endif_line)
         f.write(usr_macros)
-        for i in range(len(macro_lines)):
-            f.write(macro_lines[i])
+        # for i in range(len(macro_lines)):
+        #     f.write(macro_lines[i])
 
     return None
 
 
-def write_inp_for_pawley_on_subgroup_tree(use_strain_modes, inp_filename, cif_name, topas_latparam_lines, macro_lines, TOF_x_axis_calibration, background_line, TOF_sample_peakshape, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, xy_out_file):
+def write_inp_for_pawley_on_subgroup_tree_BISN2O7(use_strain_modes, inp_filename, cif_name, topas_latparam_lines, macro_lines, TOF_x_axis_calibration, background_line, TOF_sample_peakshape, xdd_path, refinement_iterations, conv_criteria, start_finish_x, hkl_out_file, xy_out_file):
     '''
     Parameters
     ----------
@@ -2637,9 +2767,8 @@ def write_inp_for_pawley_on_subgroup_tree(use_strain_modes, inp_filename, cif_na
         hkl_Is
             scale @ 1
             {TOF_sample_peakshape} 
-            r_bragg  37.2339895
+            r_bragg  0
             
-    
             phase_name \"{cif_name}\"	
             {topas_latparam_lines[1]}
             {topas_latparam_lines[2]}
@@ -2686,7 +2815,159 @@ def write_inp_for_pawley_on_subgroup_tree(use_strain_modes, inp_filename, cif_na
     return None
 
 
+def write_topas_input_pawley(topas_input_filename, 
+                             instrument_lines,
+                             topas_latparam_lines,
+                             iterations = 0,
+                             conv_criteria = 0.0001,
+                             continue_after_convergence = False,
+                             anneal = [False, 0.00001],
+                             do_errors = False,
+                             limit_warnings = False,
+                             xdd_wt_percent_lines = None, 
+                             xy_out_file = None, 
+                             dy_out_file = None, 
+                             hkl_out_file=None, 
+                             hkl_scaled_out_file=None):
 
+    '''
+    Parameters
+    ----------
+    topas_input_filename: str
+        Name of the INP file to write
+    instrument_lines: str
+        long f-string that contains peak fitting parameters specific to the instrument
+        choose from: POWGEN, HRPD functions
+    topas_latparam_lines: list of str
+        list of strings defining the lattice parameters and their refinement
+    iterations: int
+        number of refinement iterations for TOPAS to run
+    conv_criteria: float
+        chi^2 convergence criteria
+        default = 0.0001
+    continue_after_convergence: bool
+        continues the refinement after convergence
+        default: False
+    anneal: list[bool, float]
+        performs simulated annealing
+        default: [False, 0.00001]
+    do_errors: bool
+        calculated the error for refined parameters and generates the C-matrix (costly function to run in TOPAS)
+        default: False
+    limit_warnings: bool
+        adds a warning to the line if refined parameter is close to the min/max limits
+        default: False
+    xy_out_file: str
+        Path and Name of the output file for the calculated xy diffraction pattern with TOF on x axis
+    dy_out_file: str
+        Path and Name of the output file for the calculated xy diffraction pattern with d-spacing on x axis
+    hkl_out_file: str
+        Path and Name of the output file for the hkl intensities
+    hkl_scaled_out_file: str
+        Path and name of the output file for topas scaled hkl intensities
+
+    Returns:
+    ------------------
+        Returns nothing, but writes the TOPAS input file
+    '''
+    if continue_after_convergence == False:
+        continue_line = f'\'continue_after_convergence'
+    else:
+        continue_line = f'continue_after_convergence'
+    
+    if anneal[0] == False:
+        anneal_line = f'\'Auto_T({anneal[1]})  \' simulated annealing'
+    else:
+        anneal_line = f'Auto_T({anneal[1]})  \' simulated annealing'
+
+    if do_errors == False:
+        error_line = f'\'do_errors'
+    else:
+        error_line = f'do_errors'
+    
+    if limit_warnings == False:
+        limit_warn = f'no_LIMIT_warnings'
+    else:
+        limit_warn = f'\'no_LIMIT_warnings'
+    
+    refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
+iters  {iterations}
+chi2_convergence_criteria {conv_criteria}
+{anneal_line}
+{error_line}
+{limit_warn}
+{continue_line}
+r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
+
+"""
+    global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
+prm !pow  4
+"""
+    #* INSTRUMENT LINES WILL BE HERE 
+
+    #* MULTI-PHASE WT% LINES GO HERE - UNDER XDD, BUT ABOVE STR SCOPE
+
+    #* Pawley lattice lines will be here once written
+    
+    if xy_out_file != None:
+        output_lines_XYcalc = f""" 
+        Out_X_Ycalc(\"{xy_out_file}\")
+
+"""
+    if dy_out_file != None:
+        output_lines_DYcalc = f""" 
+        Out_d_from_tof_bragg_dayton("{dy_out_file}", d0_1, difc_1, difa_1)
+
+"""
+    if hkl_out_file != None:
+        output_lines_hkl = f""" 
+        Create_d_Ip_file_dayton(\"{hkl_out_file}\")
+        
+"""
+    if hkl_scaled_out_file != None:
+        output_lines_hkl_scaled = f""" 
+        Create_d_IScaled_file_dayton(\"{hkl_scaled_out_file}\")
+        
+"""
+
+    endif_line = '\n#endif\n'
+    usr_macros = """\'----------------------------------------### User defined macros ###----------------------------------------
+
+"""
+
+    with open(topas_input_filename, 'w') as f:
+
+        f.write(refine_lines)
+
+        f.write(global_lines)
+
+        f.write(instrument_lines)
+        
+        if xdd_wt_percent_lines != None:
+            for i in range(len(xdd_wt_percent_lines)):
+                f.write(xdd_wt_percent_lines[i])
+        
+        # topas_latparam_lines could be string or list depending on function used to make them
+        if type(topas_latparam_lines) is str:
+            f.write(topas_latparam_lines)
+        else:
+            for i in range(len(topas_latparam_lines)):
+                f.write(topas_latparam_lines[i])
+
+
+        if xy_out_file != None:
+            f.write(output_lines_XYcalc)
+        if dy_out_file != None:
+            f.write(output_lines_DYcalc)
+        if hkl_out_file != None:
+            f.write(output_lines_hkl)
+        if hkl_scaled_out_file != None:
+            f.write(output_lines_hkl_scaled)
+            
+        f.write(endif_line)
+        f.write(usr_macros)
+
+    return None
 
 
 
