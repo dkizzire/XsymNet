@@ -1,0 +1,16 @@
+    	scale   1e-7
+    	r_bragg  6.3052619
+        prm !Super_G  0.04131 min 0
+        prm !Sub_G  0.01768 min 0
+        prm !Super_L  0.00584 min 0
+        prm !Sub_L  0.00464 min 0
+        gauss_fwhm = If(Mod(K,3) == 0, Sub_G Sin(2 Th), Super_G Tan(Th)) ; 
+        lor_fwhm = If(Mod(K,3) == 0, Sub_L , Super_L ) ;
+        prm !Super_Exp_1  0.01770 min 0
+        prm !Sub_Exp_1  0.01612 min 0
+        exp_conv_const = If(Mod(K,3) == 0, Sub_Exp_1 , Super_Exp_1) ;
+        prm !Super_Exp_2  -0.00076 max 0
+        prm !Sub_Exp_2  -0.00000 max 0
+        exp_conv_const = If(Mod(K,3) == 0, Sub_Exp_2, Super_Exp_2) ; 
+        User_Defined_Dependence_Convolution(exp_conv_const, Sin(2 Th), !foobar1, 0.00000 min 0)
+        User_Defined_Dependence_Convolution(exp_conv_const, Sin(2 Th) , !foobar2, -0.02333 max 0)

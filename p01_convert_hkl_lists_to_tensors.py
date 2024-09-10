@@ -10,13 +10,13 @@ cwd = os.getcwd()
 do_hkl_intensities = False
 do_diffraction_pattern = True
 
-phase_name = 'pzt_90'
+phase_name = 'nvpf'
 experimental_hkl_filename = 'exp_hkl.dat'
-experimental_bragg_filename = 'cif0033_dy_expt.xy'
-ml_randomstates_dir_name = 'randomstates_strain'
+experimental_bragg_filename = 'cif0134_dy.xy'
+ml_randomstates_dir_name = 'randomstates'
 
-hkl_tarname = f'{phase_name}_hkl_tensors_strain_notbinned.tar'
-bragg_tarname = f'{phase_name}_bragg_strain_tensors_unscaled.tar'
+hkl_tarname = f'{phase_name}_hkl_tensors_notbinned.tar'
+bragg_tarname = f'{phase_name}_bragg_tensors.tar'
 
 transfer_directory = os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_tensors')
 if not os.path.exists(transfer_directory): os.makedirs(transfer_directory)
@@ -61,7 +61,7 @@ if do_hkl_intensities == True:
 if do_diffraction_pattern == True:
 
     data_suffix = f'*dy.xy'
-    dir_to_store_data = 'bragg_strain_randomstates_tensors_unscaled'
+    dir_to_store_data = 'bragg_randomstates_tensors'
     save_tensor_dir = os.path.join(transfer_directory, dir_to_store_data)
     if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
 
@@ -88,5 +88,5 @@ if do_diffraction_pattern == True:
     # make tensor from experimental data
     path2exp = os.path.join(cwd, 'TOPAS', phase_name, 'experimental_refinement', experimental_bragg_filename)
     tempexp = util.convert_bragg_to_tensors(path2exp)
-    torch.save(tempexp, os.path.join(transfer_directory, f'{phase_name}_bragg_expt_unscaled.pt'))
+    torch.save(tempexp, os.path.join(transfer_directory, f'{phase_name}_bragg_expt.pt'))
 

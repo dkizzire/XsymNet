@@ -1,0 +1,15 @@
+        scale   0.0855572754
+        prm Super_G  0.00000`_8.13540_LIMIT_MIN_0 min 0
+        prm Sub_G  0.00007`_0.18196_LIMIT_MIN_0 min 0
+        prm Super_L  0.00024`_0.00011_LIMIT_MIN_0 min 0
+        prm Sub_L  0.00093`_0.00010 min 0
+        gauss_fwhm = If(Mod(K,3) == 0, Sub_G Sin(2 Th), Super_G Tan(Th)) ; 
+        lor_fwhm = If(Mod(K,3) == 0, Sub_L , Super_L ) ;
+        prm Super_Exp_1  0.02244`_0.00041 min 0
+        prm Sub_Exp_1  0.01733`_0.00036 min 0
+        exp_conv_const = If(Mod(K,3) == 0, Sub_Exp_1 , Super_Exp_1) ;
+        prm Super_Exp_2  -0.00920`_0.00099 max 0
+        prm Sub_Exp_2  -0.00503`_0.00094 max 0
+        exp_conv_const = If(Mod(K,3) == 0, Sub_Exp_2, Super_Exp_2) ; 
+        User_Defined_Dependence_Convolution(exp_conv_const, Sin(2 Th), @, 0.00000`_0.00341_LIMIT_MIN_0 min 0)
+        User_Defined_Dependence_Convolution(exp_conv_const, Sin(2 Th) , @, -0.00563`_0.00353 max 0)

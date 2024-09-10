@@ -5,8 +5,8 @@ import write_TOPAS_funcs as funcs
 
 
 cwd = os.getcwd()
-cif_files = sorted(glob.glob(os.path.join(cwd, 'subgroup_cifs_beta', '*')))
-str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', 'topas_strs_beta', '*')))
+cif_files = sorted(glob.glob(os.path.join(cwd, 'subgroup_cifs_nvpf', '*')))
+str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', 'topas_strs_nvpf', '*')))
 
 for i in range(len(cif_files)):
     str_latparams, str_sgo = funcs.get_str_info(str_files[i], 'strain')
@@ -18,7 +18,7 @@ for i in range(len(cif_files)):
     # print(cif_latparams)
     # print(cif_sgo)
     # print()
-    
+
     if str_latparams != cif_latparams:
         print(f'latparam mismatch')
         print(f'{os.path.basename(cif_files[i])}')

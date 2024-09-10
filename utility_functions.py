@@ -187,7 +187,7 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
                 for j in range(i+1, len(lines)):
                     if 'prm' in lines[j]:
                         count = count+1
-                    if len(lines[j].strip()) == 0:
+                    if "}}}" in lines[j]:
                         i = j
                         break
             
@@ -195,7 +195,7 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
                 for j in range(i+1, len(lines)):
                     if 'site' in lines[j]:
                         count = count+1
-                    if len(lines[j].strip()) == 0:                        
+                    if "}}}" in lines[j]:                        
                         break   
                 break
     

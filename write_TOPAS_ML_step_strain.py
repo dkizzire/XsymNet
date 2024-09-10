@@ -18,14 +18,16 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    phase_name = 'pzt_90'
-    beamline_choice = "POWGEN"
+    phase_name = 'nvpf'
+    instrument_file = 'mspd.txt'
+    peakshape_file = 'mspd_peak_type.txt'
     sub_folder_1 = 'ml_data_generation/randomstates_strain'
-    number_of_random_states = 1000
+    number_of_random_states = 500
     topas_version = 'TOPAS6'
+    diffraction_type = 'xray'   # choices: neutron or xray
     random_strain_bounds = [-0.01, 0.01]
-    random_perturb_bounds = [-0.15, 0.15, -5.0, 5.0] # bounds for perturbing custom lattice parameters [abc_lo, abc_hi, angle_lo, angle_hi]
-    use_custom_latparams = True
+    random_perturb_bounds = [-0.1, 0.1, -5.0, 5.0] # bounds for perturbing custom lattice parameters [abc_lo(angstrom), abc_hi(angstrom), angle_lo(degrees), angle_hi(degrees)] 
+    use_custom_latparams = False
 
     # for multiphase use ------------------
     make_multiphase_classes = False
@@ -37,27 +39,33 @@ def main():
                         1: {"subgroups":['0009','0028', '0029'], 
                               'weight_range':[15.0, 85.0]}}
     refine_beq = False
+
     beq_dict = {
-        'Pb1': [-1.5, 4.5],
-        'Zr1': [-1.5, 1.5],
-        'Ti1': [-1.5, 2.5], 
-        'O1': [-1.5, 3.0]
+        'V': [-1.0, 1.0],
+        'P': [-1.0, 1.0],
+        'O': [-1.0, 1.0], 
+        'F': [-1.0, 1.0],
+        'Na': [-1.0, 1.0]
     }
+    # beq_dict = {
+    #     'Pb1': [-1.5, 4.5],
+    #     'Zr1': [-1.5, 1.5],
+    #     'Ti1': [-1.5, 2.5], 
+    #     'O1': [-1.5, 3.0]
+    # }
     # beq_dict = {
     #     'Bi1': [0.0, 1.5],
     #     'Sn1': [0.0, 1.5],
     #     'O1': [0.0, 2.5], 
     #     'O2': [0.0, 2.5]
     # }
-    # beq_dict = {
-    #     'Bi1': [0.0],
-    #     'Sn1': [0.0],
-    #     'O1':  [0.0], 
-    #     'O2':  [0.0]
-    # }
 
-    experimental_data_file = f'PZT_90_300_k.xye'
-    peakshape_lines = f'peak_type pv \n\t\tTOF_CS_L (@ , 581.69638, difc_1) \n'
+
+    experimental_data_file = f'NVPF_100K_Pattern.xye'
+    experimental_data_path = os.path.join(cwd, 'TOPAS', phase_name, experimental_data_file)
+    xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
+
+    # peakshape_lines = f'peak_type pv \n\t\tTOF_CS_L (@ , 581.69638, difc_1) \n'
     
     if phase_name == 'alpha':
         experimental_data_file = f'hrp27188_bs_alpha_neutron.xye'
@@ -71,10 +79,7 @@ def main():
         peakshape_lines = 'tof_sample_peakshape(lor, 0.143711169`, dsp, 11.64083`, dspsq, 11.71737`)'
         background_line = 'bkg  @  1.67370339`  0.0515350436`  0.00972952795` -0.12759364`  0.20547493` -0.177201821`  0.116513928` -0.0589855793`  0.0192231893`  0.0184925627` -0.000494961725` -0.000104051593`'
 
-    experimental_data_path = os.path.join(cwd, 'TOPAS', phase_name, experimental_data_file)
-    xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
-
-    start_finish_X = [14000, 96000] # TOF start & finish position in microseconds
+    # start_finish_X = [14000, 96000] # TOF start & finish position in microseconds
     # start_finish_X = [35000, 121000] # TOF start & finish position in microseconds
 
 
@@ -95,7 +100,7 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # batch cifs for running in topas in groups of 100 cifs
     # ------------------------------------------------------------------------------------------------------
-    number_of_cifs_in_a_batch = 11
+    number_of_cifs_in_a_batch = 40
     number_of_batchfiles = int(len(cif_files)/number_of_cifs_in_a_batch)
     if make_multiphase_classes == True:
         number_of_batchfiles = int((len(cif_files)+len(multiphase_dict))/number_of_cifs_in_a_batch)
@@ -124,59 +129,91 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # main loop for writting topas inputs for random states of each subgroup tree member 
     # ------------------------------------------------------------------------------------------------------
+    
+    refinement_lines = funcs.refinement_options(iters=0, continue_on_convergence=True)
+    global_lines = funcs.global_parameters()
+    xdd_lines = funcs.xdd(xdd_winpath)
+    # ----- generate instrument specific lines -----
+    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
+    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
 
+    phase_lines = f'''
+    str\n'''
 
     for i in range(len(str_files)):  # for each member of the subgroup tree
         print(f'Writing random states for {cif_noext[i]}') 
         count += 1
-        # get origin choice from subgroup cif file
-        _, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
 
         # setup for using custom lattice parameters (ex: pawley refined latparams of subgroup tree)
+        # else grabs latparams from TOPAS str file from isodistort
         if use_custom_latparams == True:
+            _, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
             latparams = funcs.get_pawley_latparams_easy_grab(easy_grab_files[i])
-            random_perturb_lat = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
-            random_perturb_angle = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
-        
-        # create random numbers for perturbation of lattice parameters
+
+        else: 
+            latparams, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
+
+        # create random numbers for perturbation of lattice parameters   
+        random_perturb_lat = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
+        random_perturb_angle = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
         random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(number_of_random_states, 6))
         
+        # create random states folder for subgroup member i
+        input_path = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1, f'{cif_noext[i]}_randomstates')
+        if not os.path.exists(input_path): os.makedirs(input_path)
         
         # for each random state of subgroup member i
         for j in range(len(random_state)): 
-            
-            # create random states folder for subgroup member i
-            input_path = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1, f'{cif_noext[i]}_randomstates')
-            if not os.path.exists(input_path): os.makedirs(input_path)
 
             # create windows path for hkl and xy output files
             topas_input_file = os.path.join(input_path, f'{cif_noext[i]}_{random_state[j]}.inp')
             topas_input_file_list.append(topas_input_file)
 
-            hkl_out_file = PureWindowsPath(Path(os.path.join(input_path, f'{cif_noext[i]}_{random_state[j]}_hkl.dat')).absolute())
             xy_out_file = PureWindowsPath(Path(os.path.join(input_path, f'{cif_noext[i]}_{random_state[j]}_xy.xy')).absolute())
             dy_out_file = PureWindowsPath(Path(os.path.join(input_path, f'{cif_noext[i]}_{random_state[j]}_dy.xy')).absolute())
+            
+            xy_out_lines = f'\nOut_X_Ycalc("{xy_out_file}")\n'
+            if diffraction_type == 'neutron':
+                dy_out_lines = f'\nOut_d_from_tof_bragg_dayton("{dy_out_file}", d0_1, difc_1, difa_1)\n'
+            if diffraction_type == 'xray':
+                dy_out_lines = f'\nOut_2th_TO_dspacing_Ycalc("{dy_out_file}")\n'
+            
 
-            if use_custom_latparams == True:
-                perturbed_latparams = funcs.perturb_latparams(latparams, spacegroup_origin, random_perturb_lat[j], random_perturb_angle[j])
+            perturbed_latparams = funcs.perturb_latparams(latparams, spacegroup_origin, random_perturb_lat[j], random_perturb_angle[j])
+            topas_latparam_lines = funcs.generate_latparam_lines_ml(perturbed_latparams, spacegroup_origin)
+            mode_lines = funcs.generate_symmetry_mode_lines_from_topas_str(str_files[i], beq_dict=beq_dict)
+            
+            with open(topas_input_file, 'w') as f:
+                f.write(refinement_lines)
+                f.write(global_lines)
+                f.write(xdd_lines)
+                f.write(instrument_lines)
+                f.write(phase_lines)
+                f.write(peakshape_lines)
+                f.write(topas_latparam_lines)
+                for k in range(len(mode_lines)):
+                    f.write(mode_lines[k])
+                f.write(xy_out_lines)
+                f.write(dy_out_lines)
 
-            mode_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str(str_files[i], 
-                                                                                      spacegroup_origin, 
-                                                                                      peakshape_lines, 
-                                                                                      random_strain[j], 
-                                                                                      custom_latparams=perturbed_latparams, 
-                                                                                      refine_beq = refine_beq, 
-                                                                                      beq_dict = beq_dict)
+            # mode_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str(str_files[i], 
+            #                                                                           spacegroup_origin, 
+            #                                                                           peakshape_lines, 
+            #                                                                           random_strain[j], 
+            #                                                                           custom_latparams=perturbed_latparams, 
+            #                                                                           refine_beq = refine_beq, 
+            #                                                                           beq_dict = beq_dict)
             
             # write the topas input file for cif i random_state j
-            funcs.write_inp_for_ML_with_strain_modes(beamline_choice,
-                                                     topas_input_file, 
-                                                     mode_lines, 
-                                                     start_finish_X, 
-                                                     xdd_winpath, 
-                                                     hkl_out_file=hkl_out_file, 
-                                                     xy_out_file=xy_out_file,
-                                                     dy_out_file=dy_out_file)
+            
+            # funcs.write_inp_for_ML_with_strain_modes(beamline_choice,
+            #                                          topas_input_file, 
+            #                                          mode_lines, 
+            #                                          start_finish_X, 
+            #                                          xdd_winpath, 
+            #                                          hkl_out_file=hkl_out_file, 
+            #                                          xy_out_file=xy_out_file,
+            #                                          dy_out_file=dy_out_file)
             
         # write a windows batch file to run 100 cifs of random states of input files at a time
         if count == batch_count_list[batch_count]:
@@ -193,106 +230,106 @@ def main():
             
             topas_input_file_list = []
 
-    if make_multiphase_classes == True:
+    # if make_multiphase_classes == True:
         
-        for i in range(len(multiphase_dict)):  # for each mixed phase folder
-            print(f'Writing random states for mixed phase of {multiphase_dict[i]["subgroups"]}')
-            count+=1
-            num_phases = len(multiphase_dict[i]["subgroups"])
+    #     for i in range(len(multiphase_dict)):  # for each mixed phase folder
+    #         print(f'Writing random states for mixed phase of {multiphase_dict[i]["subgroups"]}')
+    #         count+=1
+    #         num_phases = len(multiphase_dict[i]["subgroups"])
 
-            # create name of folder and files for mixed phase states
-            if num_phases == 2:
-                mixed_name = f'mixed_{multiphase_dict[i]["subgroups"][0]}_{multiphase_dict[i]["subgroups"][1]}'
-            if num_phases == 3:
-                mixed_name = f'mixed_{multiphase_dict[i]["subgroups"][0]}_{multiphase_dict[i]["subgroups"][1]}_{multiphase_dict[i]["subgroups"][2]}'
-            if num_phases >= 4:
-                raise Exception(f"Error: Max number of phases in a single sample exceeds 3, offending index in multiphase_dict = {multiphase_dict[i]}")
+    #         # create name of folder and files for mixed phase states
+    #         if num_phases == 2:
+    #             mixed_name = f'mixed_{multiphase_dict[i]["subgroups"][0]}_{multiphase_dict[i]["subgroups"][1]}'
+    #         if num_phases == 3:
+    #             mixed_name = f'mixed_{multiphase_dict[i]["subgroups"][0]}_{multiphase_dict[i]["subgroups"][1]}_{multiphase_dict[i]["subgroups"][2]}'
+    #         if num_phases >= 4:
+    #             raise Exception(f"Error: Max number of phases in a single sample exceeds 3, offending index in multiphase_dict = {multiphase_dict[i]}")
             
-            # build list of paths of str files to use to create mixed phases - above random states loop since these don't change for each random state
-            str_files = []
-            latparams = []
-            spacegroup_origin = []
-            for j in range(num_phases):
-                str_files.append(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', f'topas{multiphase_dict[i]["subgroups"][j]}.str'))[0])
-                if use_custom_latparams == True:
-                    lat_params_pp = funcs.get_pawley_latparams_easy_grab(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'SGT_pawley_refinement', f'cif{multiphase_dict[i]["subgroups"][j]}', '*.out'))[0])
-                    _, spacegroup_origin_pp = funcs.get_str_info(str_files[j], 'strain')
-                else:
-                    lat_params_pp, spacegroup_origin_pp = funcs.get_str_info(str_files[j], 'strain')
-                latparams.append(lat_params_pp)
-                spacegroup_origin.append(spacegroup_origin_pp)
+    #         # build list of paths of str files to use to create mixed phases - above random states loop since these don't change for each random state
+    #         str_files = []
+    #         latparams = []
+    #         spacegroup_origin = []
+    #         for j in range(num_phases):
+    #             str_files.append(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', f'topas{multiphase_dict[i]["subgroups"][j]}.str'))[0])
+    #             if use_custom_latparams == True:
+    #                 lat_params_pp = funcs.get_pawley_latparams_easy_grab(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'SGT_pawley_refinement', f'cif{multiphase_dict[i]["subgroups"][j]}', '*.out'))[0])
+    #                 _, spacegroup_origin_pp = funcs.get_str_info(str_files[j], 'strain')
+    #             else:
+    #                 lat_params_pp, spacegroup_origin_pp = funcs.get_str_info(str_files[j], 'strain')
+    #             latparams.append(lat_params_pp)
+    #             spacegroup_origin.append(spacegroup_origin_pp)
 
-            # create random phase weights in bounds
-            random_weights = np.random.uniform(low=multiphase_dict[i]['weight_range'][0], high=multiphase_dict[i]['weight_range'][1], size=(number_of_random_states, 1))
+    #         # create random phase weights in bounds
+    #         random_weights = np.random.uniform(low=multiphase_dict[i]['weight_range'][0], high=multiphase_dict[i]['weight_range'][1], size=(number_of_random_states, 1))
             
-            # create random states folder for subgroup member i
-            write_folder = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1, f'{mixed_name}_randomstates')
-            if not os.path.exists(write_folder): os.makedirs(write_folder)
+    #         # create random states folder for subgroup member i
+    #         write_folder = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1, f'{mixed_name}_randomstates')
+    #         if not os.path.exists(write_folder): os.makedirs(write_folder)
             
-            for k in range(len(random_state)):
-                topas_input_file = os.path.join(write_folder, f'{mixed_name}_{random_state[k]}.inp')
-                topas_input_file_list.append(topas_input_file)
+    #         for k in range(len(random_state)):
+    #             topas_input_file = os.path.join(write_folder, f'{mixed_name}_{random_state[k]}.inp')
+    #             topas_input_file_list.append(topas_input_file)
 
-                hkl_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_hkl.dat')).absolute())
-                xy_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_xy.xy')).absolute())
-                dy_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_dy.xy')).absolute())
+    #             hkl_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_hkl.dat')).absolute())
+    #             xy_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_xy.xy')).absolute())
+    #             dy_out_file = PureWindowsPath(Path(os.path.join(write_folder, f'{mixed_name}_{random_state[k]}_dy.xy')).absolute())
 
-                xdd_wt_percent_lines = funcs.generate_multiphase_wt_percent_lines(num_phases, topas_scale_value_multiphase, random_weights[k])
-                if num_phases == 2: 
-                    wt_dets_lines = ['\t\twt_dets(1, 2, 0)\n', '\t\twt_dets(2, 2, 0)\n']
-                if num_phases == 3:
-                    wt_dets_lines = ['\t\twt_dets(1, 3, 0)\n', '\t\twt_dets(2, 3, 0)\n', '\t\twt_dets(3, 3, 0)\n']
+    #             xdd_wt_percent_lines = funcs.generate_multiphase_wt_percent_lines(num_phases, topas_scale_value_multiphase, random_weights[k])
+    #             if num_phases == 2: 
+    #                 wt_dets_lines = ['\t\twt_dets(1, 2, 0)\n', '\t\twt_dets(2, 2, 0)\n']
+    #             if num_phases == 3:
+    #                 wt_dets_lines = ['\t\twt_dets(1, 3, 0)\n', '\t\twt_dets(2, 3, 0)\n', '\t\twt_dets(3, 3, 0)\n']
                 
 
-                strain_and_distortion_modes = []
-                phase_counter = 1
-                for l in range(num_phases):
-                    if use_custom_latparams == True:
-                        random_perturb_lat = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(3))
-                        random_perturb_angle = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(3))
-                        perturbed_latparams = funcs.perturb_latparams(latparams[l], spacegroup_origin[l], random_perturb_lat, random_perturb_angle)
+    #             strain_and_distortion_modes = []
+    #             phase_counter = 1
+    #             for l in range(num_phases):
+    #                 if use_custom_latparams == True:
+    #                     random_perturb_lat = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(3))
+    #                     random_perturb_angle = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(3))
+    #                     perturbed_latparams = funcs.perturb_latparams(latparams[l], spacegroup_origin[l], random_perturb_lat, random_perturb_angle)
                     
-                    random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(1, 6))
+    #                 random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(1, 6))
                     
-                    tmp_mode_lines =  funcs.generate_strain_and_symmetry_mode_lines_from_topas_str(str_files[l], 
-                                                                                                    spacegroup_origin[l], 
-                                                                                                    peakshape_lines, 
-                                                                                                    random_strain, 
-                                                                                                    custom_latparams=perturbed_latparams,
-                                                                                                    refine_beq = refine_beq, 
-                                                                                                    beq_dict = beq_dict,
-                                                                                                    use_vc_ma_macro=False,
-                                                                                                    multiphase=True,
-                                                                                                    wt_dets_macro = wt_dets_lines[l],
-                                                                                                    phase_count = phase_counter)
-                    # use extend instead of append to make sure strain_and_distortion_modes stays 1d 
-                    strain_and_distortion_modes.extend(tmp_mode_lines)
-                    phase_counter += 1
+    #                 tmp_mode_lines =  funcs.generate_strain_and_symmetry_mode_lines_from_topas_str(str_files[l], 
+    #                                                                                                 spacegroup_origin[l], 
+    #                                                                                                 peakshape_lines, 
+    #                                                                                                 random_strain, 
+    #                                                                                                 custom_latparams=perturbed_latparams,
+    #                                                                                                 refine_beq = refine_beq, 
+    #                                                                                                 beq_dict = beq_dict,
+    #                                                                                                 use_vc_ma_macro=False,
+    #                                                                                                 multiphase=True,
+    #                                                                                                 wt_dets_macro = wt_dets_lines[l],
+    #                                                                                                 phase_count = phase_counter)
+    #                 # use extend instead of append to make sure strain_and_distortion_modes stays 1d 
+    #                 strain_and_distortion_modes.extend(tmp_mode_lines)
+    #                 phase_counter += 1
                 
-                funcs.write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, 
-                                                                    topas_input_file, 
-                                                                    strain_and_distortion_modes, 
-                                                                    start_finish_X, 
-                                                                    xdd_winpath, 
-                                                                    xdd_wt_percent_lines = xdd_wt_percent_lines,
-                                                                    xy_out_file = xy_out_file, 
-                                                                    dy_out_file=dy_out_file,
-                                                                    hkl_out_file = hkl_out_file)
+    #             funcs.write_inp_for_multiphase_ML_with_strain_modes(beamline_choice, 
+    #                                                                 topas_input_file, 
+    #                                                                 strain_and_distortion_modes, 
+    #                                                                 start_finish_X, 
+    #                                                                 xdd_winpath, 
+    #                                                                 xdd_wt_percent_lines = xdd_wt_percent_lines,
+    #                                                                 xy_out_file = xy_out_file, 
+    #                                                                 dy_out_file=dy_out_file,
+    #                                                                 hkl_out_file = hkl_out_file)
 
-            # write a windows batch file to run 100 cifs of random states of input files at a time
-            if count == batch_count_list[batch_count]:
-                # reset count and increment batch_count by 1
-                count = 0
-                batch_count += 1
-                inp_winpath = [PureWindowsPath(Path(x).absolute()) for x in topas_input_file_list]
+    #         # write a windows batch file to run 100 cifs of random states of input files at a time
+    #         if count == batch_count_list[batch_count]:
+    #             # reset count and increment batch_count by 1
+    #             count = 0
+    #             batch_count += 1
+    #             inp_winpath = [PureWindowsPath(Path(x).absolute()) for x in topas_input_file_list]
 
-                batchfile_write = os.path.join(batch_dir, f'ml_strain_randomstates_batch_{str(batch_count).zfill(4)}.bat')
-                with open(batchfile_write, 'w') as f:
-                    f.write(f'cd C:\{topas_version} \n')
-                    for i in range(len(inp_winpath)):
-                        f.write(f'tc "{inp_winpath[i]}" \n')
+    #             batchfile_write = os.path.join(batch_dir, f'ml_strain_randomstates_batch_{str(batch_count).zfill(4)}.bat')
+    #             with open(batchfile_write, 'w') as f:
+    #                 f.write(f'cd C:\{topas_version} \n')
+    #                 for i in range(len(inp_winpath)):
+    #                     f.write(f'tc "{inp_winpath[i]}" \n')
                 
-                topas_input_file_list = []
+    #             topas_input_file_list = []
 
 
 

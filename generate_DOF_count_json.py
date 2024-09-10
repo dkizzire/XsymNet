@@ -4,13 +4,13 @@ import glob
 import os
 
 
-phase_name = 'pzt_90'
+phase_name = 'nvpf'
 multiphase = True
 cwd = os.getcwd()
 str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', '*.str')))
 
 
-ml_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', 'randomstates_strain', '*')))
+ml_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', 'randomstates', '*')))
 dirnames = [os.path.basename(x).split('_randomstates')[0] for x in ml_dirs]
 dirnames = [x.strip('cif') for x in dirnames]
 print(dirnames)
@@ -37,4 +37,4 @@ if multiphase == True:
         
         dof_dict[multi_list[i]] = count
     
-util.save_dict_to_json(dof_dict, f'./{phase_name}_dof_counts.json')
+util.save_dict_to_json(dof_dict, f'./dof_counts_{phase_name}.json')

@@ -14,7 +14,65 @@ from pathlib import Path, PureWindowsPath
 import re
 from fractions import Fraction
 
+# ------ Refinement Options  ------
+def refinement_options(iters:int = 0, converge:float = 0.0001, continue_on_convergence:bool = False, anneal:bool = False, anneal_param:float = 0.00001, do_errors:bool = False, limit_warn:bool = False):
+    if continue_on_convergence == False:
+        continue_line = f'\'continue_after_convergence'
+    else:
+        continue_line = f'continue_after_convergence'
+    
+    if anneal == False:
+        anneal_line = f'\'Auto_T({anneal_param})  \' simulated annealing'
+    else:
+        anneal_line = f'Auto_T({anneal_param})  \' simulated annealing'
+
+    if do_errors == False:
+        error_line = f'\'do_errors'
+    else:
+        error_line = f'do_errors'
+    
+    if limit_warn == False:
+        limit_warn_line = f'no_LIMIT_warnings'
+    else:
+        limit_warn_line = f'\'no_LIMIT_warnings'
+    
+    refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
+iters  {iters}
+chi2_convergence_criteria {converge}
+{continue_line}
+{anneal_line}
+{error_line}
+{limit_warn_line}
+
+r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
+
+"""
+    return refine_lines
+
+
+
+# ------ Global Parameters ------
+def global_parameters():
+    global_lines = f"""\'----------------------------------------### Global parameters ###----------------------------------------
+prm !pow  4
+"""
+    return global_lines
+
+def xdd(data_winpath:str):
+
+    xdd_line = f'''xdd "{data_winpath}" \n'''
+    return xdd_line
+
+
+
 # ------ Instrument specific info for TOPAS INP files ------
+def instrument_parameters(instrument_file:str):
+    with open(instrument_file, 'r') as f:
+        lines = f.readlines()
+    instrument_lines = ''.join(lines)
+    return instrument_lines
+
+
 def powgen_inp_lines(xdd_winpath, start_finish_X, refine_instrument_parameters=False):
     '''
     Parameters
@@ -146,7 +204,44 @@ xdd filename_bs xye_format
     return HRPD_lines
 
 
+def mspd_inp_lines(xdd_winpath, start_finish_X, refine_instrument_parameters=False):
+    '''
+    Parameters
+    ----------
+    xdd_winpath: str
+        Full Windows path to the data file for xdd
+    start_finish_X: list of floats
+        start and finish of TOF range for Topas
+    refine_instrument_parameters: bool: False
+        writes ! in front of instrument parameters to prevent them from refining
+    '''
+    if refine_instrument_parameters == False:
+        param_lines = """    local    !d0_1    9.32399	    min -20  max 20 
+	local    !difc_1  22571.96264   min 22500 max 22650
+	local    !difa_1 -0.01750		   	    min -10  max 10	
+	local    !difb_1 -5.83330		        min -10   max 5
+	TOF_x_axis_calibration_POWGEN(@,=d0_1;,
+								  @,=difc_1;,
+								  @,=difa_1;,
+								  @,=difb_1;)
+	
+    POWGEN_instrument_2						   '2019B values in below
+    local   !sig0 -36.48037 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
+    local   !sig1  44.86277 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
+    local   !sig2 -0.22180 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
+    local   !sig3  1.32642 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
+    local   !gam0 -1.45221 min -20 max 20      'gam0 -11.17295_0.33002 min -20 max 20   
+    local   !gam1  14.40400 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
+    local   !gam2 -1.76409 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
+            
+    GSAS_btb
+    local   !alpha0  152.73005 min 0 max 250    'alpha0 -95.16910_1.07001 min -150 max 100
+    local   !alpha1 -31.59878 min -100 max 100  'alpha1  41.69600_0.78367 min -100 max 100
+    local   !alpha2 -14.38509 min -100 max 100  'alpha1  41.69600_0.78367 min -100 max 100
+    local   !beta0 -62.66207 min -100 max 0     'beta0  73.08348_0.29513 min -100 max 100 
+    local   !beta1  16.38983 min -100 max 100   'beta1 -2.68722_0.05497 min -100 max 100  
 
+"""
 # ------ Get info from cif and str files ------
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as f:
@@ -592,6 +687,127 @@ def generate_pawley_lattice_lines(latparams, spacegroup_origin, peakshape_lines)
     return hkl_is_lines
 
 
+def generate_pawley_lattice_lines_v2(latparams, spacegroup_origin, use_vc:bool = False):
+    '''
+    Parameters
+    ----------
+    latparams: list
+        [a, b, c, alpha, beta, gamma]
+    spacegroup_origin: list
+        [spacegroup: int, origin_choice: int]
+    use_vc: bool
+        if true, eill put "vc" after each optimizable lattice parameter, which will acitivate the vc macro
+
+    Returns:
+    ----------
+    topas_latparam_lines: list of strings that can be input into a topas input file for pawley lattice parameter refinement
+    '''
+    if use_vc == True:
+        vc = 'vc'
+    else:
+        vc = ''
+
+    sg = spacegroup_origin[0]
+    # initialize topas_latparam_lines
+    latparam_lines = ['a', 'b', 'c','alpha','beta','gamma', 'sg']
+
+    # define ranges of bravais lattices
+    triclinic_range = np.arange(1,3).tolist()
+    monoclinic_range = np.arange(3,16).tolist()
+    orthorhombic_range = np.arange(16,75).tolist()
+    tetragonal_range = np.arange(75,143).tolist()
+    # in our subgroup tree from isodistort, every trigonal cif is in trigonal_hexagonal axes format (even if they rhombohedral space groups) 
+    # --> if needed for a different project, can turn these back on and comment out trigonal_range
+    # trigonal_hex_range = [143, 144, 145, 147, 149, 150, 151, 152, 153, 154, 156, 157, 158, 159, 162, 163, 164, 165]
+    # trigonal_rhomb_range = [146, 148, 155, 160, 161, 166, 167]
+    trigonal_range = np.arange(143, 168).tolist()
+    hexagonal_range = np.arange(168,195).tolist()
+    cubic_range = np.arange(195,231).tolist()
+
+    # set spacegroup:origin_choice
+    latparam_lines[6] = f'space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}'
+
+    # set pawley refinement lines based on spacegroup symmetry
+    if sg in triclinic_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b lpb {latparams[1]} {vc}'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al alph {latparams[3]} {vc}'
+        latparam_lines[4] = f'be bet {latparams[4]} {vc}'
+        latparam_lines[5] = f'ga gam {latparams[5]} {vc}'
+
+    if sg in monoclinic_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b lpb {latparams[1]} {vc}'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be bet {latparams[4]} {vc}'
+        latparam_lines[5] = f'ga 90.0'
+
+    if sg in orthorhombic_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b lpb {latparams[1]} {vc}'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
+
+    if sg in tetragonal_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
+
+    if sg in trigonal_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
+
+    if sg in hexagonal_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c lpc {latparams[2]} {vc}'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 120.0'
+
+    if sg in cubic_range:
+        latparam_lines[0] = f'a lpa {latparams[0]} {vc}'
+        latparam_lines[1] = f'b = lpa; : 0'
+        latparam_lines[2] = f'c = lpa; : 0'
+        latparam_lines[3] = f'al 90.0'
+        latparam_lines[4] = f'be 90.0'
+        latparam_lines[5] = f'ga 90.0'
+
+    hkl_is_lines = f"""
+
+
+        {latparam_lines[0]}
+        {latparam_lines[1]}
+        {latparam_lines[2]}
+        {latparam_lines[3]}
+        {latparam_lines[4]}
+        {latparam_lines[5]}
+        macro vc {{ val_on_continue = Val+Val*Rand(-.1,.1); }}
+
+        'Easy grab reporting
+        local !latparam_a = Get(a); : 0
+        local !latparam_b = Get(b); : 0
+        local !latparam_c = Get(c); : 0
+        local !latparam_al = Get(al); : 0
+        local !latparam_be = Get(be); : 0
+        local !latparam_ga = Get(ga); : 0
+
+        space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}
+"""
+    return hkl_is_lines
+
+
 def generate_pawley_latparam_lines_with_strain_modes(isodistort_str_file, spacegroup_origin, peakshape_lines):
     file_lines = []
     with open(isodistort_str_file, 'r') as f:
@@ -729,6 +945,39 @@ def generate_lattice_parameter_lines_with_vc_macro(latparams, spacegroup_origin,
     
 
     return latparam_lines
+
+
+def generate_latparam_lines_ml(latparams, spacegroup_origin):
+    latparam_lines = ['a', 'b', 'c','alpha','beta','gamma']
+    latparam_lines[0] = f'a {latparams[0]} '
+    latparam_lines[1] = f'b {latparams[1]} '
+    latparam_lines[2] = f'c {latparams[2]} '
+    latparam_lines[3] = f'al {latparams[3]} '
+    latparam_lines[4] = f'be {latparams[4]} '
+    latparam_lines[5] = f'ga {latparams[5]} '
+
+    return_lines = f"""
+
+        {latparam_lines[0]}
+        {latparam_lines[1]}
+        {latparam_lines[2]}
+        {latparam_lines[3]}
+        {latparam_lines[4]}
+        {latparam_lines[5]}
+
+        'Easy grab reporting
+        local !latparam_a = Get(a); : 0
+        local !latparam_b = Get(b); : 0
+        local !latparam_c = Get(c); : 0
+        local !latparam_al = Get(al); : 0
+        local !latparam_be = Get(be); : 0
+        local !latparam_ga = Get(ga); : 0
+
+        space_group {spacegroup_origin[0]}:{spacegroup_origin[1]}
+
+
+"""
+    return return_lines
 
 
 def generate_site_lines(site_info, refine_beq=False, beq_dict=None):
@@ -1318,34 +1567,43 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
                 difference_restrainsts.append(append_lines)
 
     # ----------------------------------------------------------------------------------------
-    # Augment mode amplitudes lines
-    
+    #* Augment mode amplitudes lines
+    # ----------------------------------------------------------------------------------------
+
     # Transform mode_definitions_lines into dataframe to augment ititial values for mode amplitudes
     mode_definitions_lines = [line.split() for line in mode_definitions]
-    mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
 
-    # generate random intial values for mode amplitudes
-    rand_values = np.random.normal(0, .33, len(mode_definitions_df))
-    mode_definitions_df[2] = rand_values
+    # if statement catches special case where there are no mode definitions, prevents writing empty dataframe, which can cause issues 
+    if len(mode_definitions_lines) != 0:
+        mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
 
-    # augment each line of mode amplitudes to include vc macro
-    if use_vc_ma_macro == True:
-        vc_column = ['vc min']*len(mode_definitions_df)
-        mode_definitions_df[3] = vc_column
+        # generate random intial values for mode amplitudes
+        rand_values = np.random.normal(0, .33, len(mode_definitions_df))
+        mode_definitions_df[2] = rand_values
 
-        # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
-        mode_var_names = mode_definitions_df[1].tolist()
-        mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
-        mode_definitions_df[1] = mode_var_names
+        # augment each line of mode amplitudes to include vc macro
+        if use_vc_ma_macro == True:
+            vc_column = ['vc min']*len(mode_definitions_df)
+            mode_definitions_df[3] = vc_column
+
+            # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
+            mode_var_names = mode_definitions_df[1].tolist()
+            mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
+            mode_definitions_df[1] = mode_var_names
 
 
-    # Transform mode amplitudes dataframe back to strings for writing
-    mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
-    mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
-    mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+        # Transform mode amplitudes dataframe back to strings for writing
+        mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
+        mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
+        mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
 
+    else:
+        mode_definitions_writing = ['\n']
+
+    
     # ----------------------------------------------------------------------------------------
-    # Augment mode dependent sites lines to have beq values
+    #* Augment mode dependent sites lines to have beq values
+    # ----------------------------------------------------------------------------------------
 
     # Split mode_dependent_sites at spaces to modify certain values
     mode_dependent_sites_lines = [line.split() for line in mode_dependent_sites]
@@ -1429,7 +1687,381 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
     return all_mode_lines
 
 
+
 def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
+    '''
+    Parameters
+    ----------
+    isodistort_str_file: str
+        Path to str (structure) file generated by isodistort
+    spacegroup_origin: list of ints
+        the spacegroup and origin choice for the structure
+    peak_shape_line: str
+        Line to describe the peakshape in topas
+    random_strain: np array 
+        shape=[6], samples of np.random.uniform between min and max values for strain modes 
+    custom_latparams: list of floats
+        [a,b,c,alpha,beta,gamma] : use if wanting to supply custom lattice parameters other than what is found in the isodistort str file
+    refine_beq: bool
+        if True: 'beq' in mode_dependent_sites section will change to 'beq bval_{atom_type}'
+        if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
+    beq_dict: dict
+        USE:
+        {'atom_type': [0, 2.5]} -> will use np.random.uniform to pull a random number from the range [0.0, 2.5)
+        {'atom_type': [3.2]}    -> will set the beq value to 3.2 for that atom type
+        Note: atom_type can be found in the topas_str file under mode_dependent_sites section
+        EX: site Bi1_1 ....  --> atom_type = Bi1
+    use_vc_ma_macro: Bool
+        Whether to apply vc_ma macro for continue on convergence to augment the mode_amplitude value after every convergence
+        Also removes '!' before every prm aX in mode definitions to allow them to refine
+    mulitphase: Bool - Default: False
+        if True: Changes prm to local to avoid variables cross contaminating, changes scaling behavior based on number of phases
+    wt_dets_macro: str - Default: str(None)
+        Line to control the wt% of each phase 
+        Ex: for the first of 3 phases :: wt_dets(1,3,0) where the 0 in the third position just reports the wt% after TOPAS runs
+    phase_count: int - Default: None
+        an integer to append to beq variable names for multiphase inputs where atoms types are the same
+
+    
+    Returns:
+    ----------
+        List of strings: for structure perturbation using strain modes and symmetry mode analysis for writing into a topas input file
+
+    Purpose:
+    ----------
+        This function is used to create perturbations of
+        1) lattice parameters through strain mode amplitudes or custom lattice parameters, 
+        2) atomic positions through mode amplitudes and mode_dependent_sites sections,
+        3) thermal broadening of peaks in diffraction pattern through beq (topas isotropic thermal parameters)
+
+    '''
+
+    file_lines = []
+    with open(isodistort_str_file, 'r') as f:
+        file_lines = f.readlines()
+
+    start_str = '\'Topas .str file generated by '
+    mode_definition_str = '\'{{{mode definitions'
+    mode_amplitude_str = '\'{{{mode-amplitude to delta transformation'
+    distorted_parameters_str = '\'{{{distorted parameters'
+    mode_dependent_sites_str = '\'{{{mode-dependent sites'
+    difference_restrainsts_str = '\'{{{difference restraints for interconnected rigid bodies'
+    macros_str = '\'{{{macros for calculations involving the lattice parameters'
+    end_str = '\'}}}'
+
+    str_strain = []
+    mode_definitions = []
+    mode_amplitudes = []
+    distorted_parameters = []
+    mode_dependent_sites = []
+    difference_restrainsts = []
+    strain_macros = []
+
+    # ----------------------------------------------------------------------------------------
+    #* parse topas str file into sections
+    # ----------------------------------------------------------------------------------------
+
+    for (i, line) in enumerate(file_lines):
+
+        if start_str in line:
+            for append_lines in file_lines:
+                if 'scale' in append_lines:
+                    if multiphase == True:
+                        str_strain.append(f'\n')
+                    else:
+                        str_strain.append(f'\t\tscale @ 100.0\n')
+                    break
+                str_strain.append(append_lines)
+
+        if mode_definition_str in line:
+            for append_lines in file_lines[(i+1):]: # use i+1 as start of slice so we don't include title string in appended list
+                if end_str in append_lines: # break condition comes before appending lines so we don't append end_str to appended list 
+                    break
+                if len(append_lines.split()) < 2:
+                    continue
+                mode_definitions.append(append_lines)
+
+        if mode_amplitude_str in line:
+            for append_lines in file_lines[(i+1):]:
+                if end_str in append_lines:
+                    break
+                if len(append_lines.split()) < 2:
+                    continue
+                mode_amplitudes.append(append_lines)
+
+        if distorted_parameters_str in line:
+            for append_lines in file_lines[(i+1):]:
+                if end_str in append_lines:
+                    break
+                if len(append_lines.split()) < 2:
+                    continue
+                distorted_parameters.append(append_lines)
+
+        if mode_dependent_sites_str in line:
+            for append_lines in file_lines[(i+1):]:
+                if end_str in append_lines:
+                    break
+                if len(append_lines.split()) < 2:
+                    continue
+                mode_dependent_sites.append(append_lines)
+
+        if difference_restrainsts_str in line:
+            for append_lines in file_lines[(i+1):]:
+                if end_str in append_lines:
+                    break
+                if len(append_lines.split()) < 2:
+                    continue
+                difference_restrainsts.append(append_lines)
+
+        # if macros_str in line:
+        #     for append_lines in file_lines[i:]:
+        #         strain_macros.append(append_lines)
+        #         if end_str in append_lines:
+        #             break
+
+
+    # ----------------------------------------------------------------------------------------
+    #* Augment strain mode lines OR supply custom lattice parameters
+    # ----------------------------------------------------------------------------------------
+    # insert peak shape line in str_strain
+    # str_strain.insert(4, f'\t\t{peak_shape_line}\n')
+    str_strain.insert(4, f'\t\tpeak_type pv\n\t\tTOF_CS_L (@ , 581.69638, difc_1)\n')
+    str_strain.insert(5, f'\t\tr_bragg 0.0\n')
+    
+
+    # section for using custom latparams 
+    if custom_latparams != None:
+        if multiphase == True:
+            str_strain.insert(6, f'{wt_dets_macro}\n')
+        for i in range(len(str_strain)):
+            if 'space_group' in str_strain[i]:
+                str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+            # comment out defining strain modes to use classic latparams method
+            if '#define refine_strain_modes' in str_strain[i]:
+                str_strain[i] =  "\t\t'#define refine_strain_modes 'comment out this line for a traditional supercell-parameter refinement."
+
+            if '#else' in str_strain[i]:
+                j = i+1
+                latcount = 0
+                for j in range(j, len(str_strain)):
+                    if '#endif' in str_strain[j]:
+                        break
+                    split = str_strain[j].split()
+                    str_strain[j] = f'\t\t\t{split[0]}    {custom_latparams[latcount]:.6f}\n' 
+                    latcount +=1
+    else:
+        # section for using strain modes instead of classic latparams method 
+        if multiphase==False:
+            for i in range(len(str_strain)):
+                if 'space_group' in str_strain[i]:
+                    str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+                if '#ifdef refine_strain_modes' in str_strain[i]:
+                    random_count = 0
+                    for j in range(i+1, len(str_strain)):
+                        split = str_strain[j].split()
+                        # print(split)
+                        if len(split) == 0:
+                            break
+                        split = str_strain[j].split('0.00000')
+                        # print(split)
+                        newline = f'{split[0]}{random_strain[random_count]} {split[1]}'
+                        random_count += 1
+                        # print(newline)
+                        str_strain[j] = newline
+                        # print(str_strain[j])
+                    
+                    break
+        
+        if multiphase == True:
+            str_strain.insert(6, f'{wt_dets_macro}\n')
+            for i in range(len(str_strain)):
+                if 'space_group' in str_strain[i]:
+                    str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+
+                if '#ifdef refine_strain_modes' in str_strain[i]:
+                    random_count = 0
+                    for j in range(i+1, len(str_strain)):
+                        split = str_strain[j].split()
+                        # print(split)
+                        if len(split) == 0:
+                            break
+                        split = str_strain[j].split('0.00000')
+                        # print(split)
+                        local_split = split[0].replace('prm', 'local')
+                        newline = f'{local_split}{random_strain[0][random_count]} {split[1]}'
+                        random_count += 1
+                        # print(newline)
+                        str_strain[j] = newline
+                        # print(str_strain[j])
+                
+                if 'unitless parent cell strains' in str_strain[i]:
+                    for j in range(i+1, len(str_strain)):
+                        if len(str_strain[j].split()) == 0:
+                            break
+                        newline = str_strain[j].replace('prm', 'local')
+                        str_strain[j] = newline
+
+                if 'straincell(' in str_strain[i]:
+                    newline = str_strain[i].replace('straincell', 'straincell_local')
+                    str_strain[i] = newline
+                
+                if 'celltransform(' in str_strain[i]:
+                    newline = str_strain[i].replace('celltransform', 'celltransform_local')
+                    str_strain[i] = newline
+
+
+    # ----------------------------------------------------------------------------------------
+    #* Augment mode amplitudes lines
+    # ----------------------------------------------------------------------------------------
+
+    # Transform mode_definitions_lines into dataframe to augment ititial values for mode amplitudes
+    mode_definitions_lines = [line.split() for line in mode_definitions]
+    mode_definitions_writing=[]
+    # special case where there are no mode definitions, writes empty dataframe, if statement checking if len is 0 prevents this issue
+    if len(mode_definitions_lines) != 0:
+        mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
+
+        # generate random intial values for mode amplitudes
+        rand_values = np.random.normal(0, .33, len(mode_definitions_df))
+        mode_definitions_df[2] = rand_values
+
+        # augment each line of mode amplitudes to include vc macro
+        if use_vc_ma_macro == True:
+            vc_column = ['vc min']*len(mode_definitions_df)
+            mode_definitions_df[3] = vc_column
+
+            # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
+            mode_var_names = mode_definitions_df[1].tolist()
+            mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
+            mode_definitions_df[1] = mode_var_names
+
+
+        # Transform mode amplitudes dataframe back to strings for writing
+        mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
+        mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
+
+        if multiphase == True:
+            for i in range(len(mode_definitions_writing_split)):
+                mode_definitions_writing_split[i] = mode_definitions_writing_split[i].replace('prm', 'local')
+
+        mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+
+    # ----------------------------------------------------------------------------------------
+    #* If multiphase - change prm to local in mode-amplitude-to-delta-transformation & distorted parameters sections
+    # ----------------------------------------------------------------------------------------
+    if multiphase == True:
+        for i in range(len(mode_amplitudes)):
+            newline = mode_amplitudes[i].replace('prm', 'local')
+            mode_amplitudes[i] = newline
+
+        for i in range(len(distorted_parameters)):
+            newline = distorted_parameters[i].replace('prm', 'local')
+            distorted_parameters[i] = newline
+
+    # ----------------------------------------------------------------------------------------
+    #* Augment mode dependent sites lines to have beq values
+    # ----------------------------------------------------------------------------------------
+
+    # Split mode_dependent_sites at spaces to modify certain values
+    mode_dependent_sites_lines = [line.split() for line in mode_dependent_sites]
+
+    # get atom types from topas str file
+    all_atom_types_list = [mode_dependent_sites_lines[i][1].split('_')[0] for i in range(len(mode_dependent_sites_lines))]
+    all_atom_types_list_unique = np.unique(all_atom_types_list).tolist()
+
+    # generate a beq_value_dict from ranges in beq_matrix for each atom type
+    beq_value_dict = {}
+    if beq_dict !=None:
+        for i in range(len(all_atom_types_list_unique)):
+            if all_atom_types_list_unique[i] == 'origin':
+                continue
+            beq_range = beq_dict.get(all_atom_types_list_unique[i])
+            
+            if len(beq_range) == 2:
+                beq_value = np.random.uniform(beq_range[0], beq_range[1])
+            elif len(beq_range) == 1:
+                beq_value = beq_range[0]
+            else: print('beq_matrix is configured incorrectly, please fix and try again')
+            beq_value_dict[all_atom_types_list_unique[i]] = beq_value 
+
+    # use mode dependent sites lines to find atom types to apply beq
+    for i in range(len(mode_dependent_sites_lines)):
+        # if empty line OR 'origin' line in this section, continue past it
+        if len(mode_dependent_sites_lines[i]) < 14:
+            continue
+
+        # get the atom type
+        atom_type = mode_dependent_sites_lines[i][1].split('_')[0]
+        if refine_beq == True:
+            beq_var_name = f'beq bval_{atom_type}'
+            if phase_count != None:
+                beq_var_name = f'beq bval_{atom_type}_{phase_count}'
+        else: 
+            beq_var_name = f'beq !bval_{atom_type}'
+            if phase_count != None:
+                beq_var_name = f'beq !bval_{atom_type}_{phase_count}'
+
+        mode_dependent_sites_lines[i][17] = beq_var_name
+
+        # apply beq value from beq_value_dict
+        mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
+    
+
+    # join list of strings back together
+    mode_dependent_sites_lines = [' '.join(mode_dependent_sites_lines[i]) for i in range(len(mode_dependent_sites_lines))]
+    mode_dependent_sites = [f'\t\t{mode_dependent_sites_lines[i]}\n' for i in range(len(mode_dependent_sites_lines))]
+
+    # ----------------------------------------------------------------------------------------
+    #* Join all lines together back into list to be written into topas input file
+    # ----------------------------------------------------------------------------------------
+
+    all_mode_lines = []
+    # append strain mode and str (structure definition) lines 
+    for i in range(len(str_strain)):
+        all_mode_lines.append(str_strain[i])
+    all_mode_lines.append('\n')
+
+    # append mode definitions
+    all_mode_lines.append(f'{mode_definition_str}\n')
+    for i in range(len(mode_definitions_writing)):
+        all_mode_lines.append(mode_definitions_writing[i])
+    all_mode_lines.append(f'{end_str}\n\n')    
+
+    # append mode amplitudes
+    all_mode_lines.append(f'{mode_amplitude_str}\n')
+    for i in range(len(mode_amplitudes)):
+        all_mode_lines.append(mode_amplitudes[i])
+    all_mode_lines.append(f'{end_str}\n\n')    
+
+    # append distorted parameters
+    all_mode_lines.append(f'{distorted_parameters_str}\n')
+    for i in range(len(distorted_parameters)):
+        all_mode_lines.append(distorted_parameters[i])
+    all_mode_lines.append(f'{end_str}\n\n')   
+
+    # append mode_dependent_sites
+    all_mode_lines.append(f'{mode_dependent_sites_str}\n')
+    for i in range(len(mode_dependent_sites)):
+        all_mode_lines.append(mode_dependent_sites[i])
+    all_mode_lines.append(f'{end_str}\n\n')   
+
+    # append difference restraints
+    all_mode_lines.append(f'{difference_restrainsts_str}\n')
+    for i in range(len(difference_restrainsts)):
+        all_mode_lines.append(difference_restrainsts[i])
+    all_mode_lines.append(f'{end_str}\n\n')   
+
+    # # append macros
+    # for i in range(len(strain_macros)):
+    #     all_mode_lines.append(strain_macros[i])
+    # all_mode_lines.append('\n\n')
+
+
+    return all_mode_lines
+
+
+def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
     '''
     Parameters
     ----------
