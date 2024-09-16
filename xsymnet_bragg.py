@@ -11,30 +11,29 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms 
 from collections import Counter
 from sklearn.utils.class_weight import compute_class_weight
-from pytorch_model_summary import summary
 from sklearn.preprocessing import MaxAbsScaler
 
 import utility_functions as util
-import xsym_net_funcs as funcs
-import xsym_net_classes as xsym
-import torch_ESS_classes_inception as ESS_incep
+import xsymnet_funcs as funcs
+import xsymnet_classes as xsym
 
 #--------------------------------------------------------------------------------------------
 # Input phase
 #--------------------------------------------------------------------------------------------
-phase_name = 'alpha'
+phase_name = 'nvpf'
 train_model = True
 classify_experiment = True
 # ground_truth_cif = '0152'
-ground_truth_cif = '0548'
+# ground_truth_cif = '0009'
+ground_truth_cif = '0070'
 confidence_iterations = 100
-number_of_classes = 546
+number_of_classes = 134
 t0 = time.time()
 cwd = os.getcwd()
 #--------------------------------------------------------------------------------------------
 # Determine if running on GPU or CPU and set tensor map locations
 #--------------------------------------------------------------------------------------------
-gpu_index = 3
+gpu_index = 5
 maplocation = util.determine_gpu_or_cpu(gpu_index)
 
 # -------------------------------------------------------------------------------------------
@@ -43,21 +42,29 @@ maplocation = util.determine_gpu_or_cpu(gpu_index)
 
 # Load training and testing data as tensors 
 # data_folder = os.path.join(cwd, 'ml_data', phase_name, 'bragg_randomstates_strain_tensors_unscaled')
-data_folder = os.path.join(cwd, 'ml_data', phase_name, 'bragg_randomstates_tensors_unscaled')
-number_of_random_states = 200
-number_for_testing = 20
-trunc_index = 5390
+data_folder = os.path.join(cwd, 'ml_data', phase_name, 'bragg_randomstates_tensors')
+number_of_random_states = 500
+number_for_testing = 200
+data_start_index = 0
+data_end_index = 8640 #661 #TOF 23750 for NVPF  ...... # 1181 TOF 36000  for PZT_90
 
-X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.configure_bragg_data_trunc(data_folder, trunc_index, number_of_random_states, number_for_testing)
+X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.configure_bragg_data_trunc(data_folder, number_of_random_states, number_for_testing, start_index=data_start_index, end_index=data_end_index)
 expt_data_unscaled = torch.load(os.path.join(cwd, 'ml_data', phase_name, f'{phase_name}_bragg_expt.pt'))
-expt_data_unscaled = expt_data_unscaled[0,trunc_index:]
+expt_data_unscaled = expt_data_unscaled[0,data_start_index:data_end_index]
 expt_data_unscaled = expt_data_unscaled.unsqueeze(0)
 
-with open('./subgroup_ML_labels_to_cifIDs.json', 'r') as f: 
-    label_mapper = json.load(f)
+# with open('./subgroup_ML_labels_to_cifIDs.json', 'r') as f: 
+#     label_mapper = json.load(f)
 
-with open('./subgroup_refinable_parameter_counts.json', 'r') as f:
+with open(f'./dof_counts_{phase_name}.json', 'r') as f:
     param_mapper = json.load(f)
+
+class_names = list(param_mapper.keys())
+label_mapper = {}
+for i in range(len(class_names)):
+    label_mapper[f"{i}"] = class_names[i]
+
+
 # -------------------------------------------------------------------------------------------
 #* Scale training & testing data, send to GPU
 # -------------------------------------------------------------------------------------------
@@ -112,7 +119,7 @@ if load_pretrained_model == True:
         for k, v in state.items():
             if torch.is_tensor(v):
                 state[k] = v.to(maplocation)
-    scheduler = MultiStepLR(optimizer, milestones=[50, 125], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[75, 125], gamma=0.1)
     # epoch = checkpoint['epoch']
     # loss = checkpoint['loss']
 
@@ -121,7 +128,7 @@ if load_pretrained_model == False:
     criterion = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-    scheduler = MultiStepLR(optimizer, milestones=[50, 100], gamma=0.1)
+    scheduler = MultiStepLR(optimizer, milestones=[75, 125], gamma=0.1)
 
 
 model.to(maplocation)
@@ -190,7 +197,7 @@ if train_model == True:
     print(f'Runtime: {(t1-t0)/60} minutes')
 
     #! ------------ SAVE THE MODEL ------------
-    path = f'/netdisk/dx6/saved_models/{phase_name}_e{epochs}_bragg_trunc_new_pawley_3.pt'
+    path = f'/netdisk/dx6/saved_models/{phase_name}_e{epochs}_bragg.pt'
     torch.save({
         'epoch':epoch, 
         'model_state_dict':model.state_dict(), 
@@ -201,7 +208,7 @@ if train_model == True:
 # * Run XsymNet against experimental data
 # ------------------------------------------------------------------------------------------------------   
 
-model_filename = f'{phase_name}_e150_bragg_trunc_new_pawley_3.pt'
+model_filename = f'{phase_name}_e150_bragg.pt'
 
 if classify_experiment == True:
 
@@ -263,23 +270,23 @@ if classify_experiment == True:
     # get subgroup info for predicted subgroups and write to file
 
         
-    print()
-    cif_path = os.path.join(cwd, f'subgroup_cifs_{phase_name}' )
-    model_name_noext = os.path.splitext(model_filename)[0]
-    keys = list(confidence_results.keys())
-    with open(f'./z_{model_name_noext}.txt', 'a') as f:
-        f.write('------------------\n')
-        f.write(f'Ground Truth Info: \n')
-        subgroup_info = funcs.get_subgroup_info(ground_truth_cif, cif_path)
-        f.write(f'{subgroup_info[0]}')
-        f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
-        f.write('------------------\n')
-        f.write(f'Prediction Results: \n')
-        f.write(f'Evaluated Model: {model_filename}\n')
-        f.write(f'{keys}\n\n')
-        for i in range(len(keys)):
-            subgroup_info = funcs.get_subgroup_info(keys[i], cif_path)
-            f.write(f'{subgroup_info[0]}')
-            f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
-            f.write(f'100 iteration score: {confidence_results[keys[i]]}\n\n')
-        f.write(f'\n-----------------------------------------------------------------------------\n\n')
+    # print()
+    # cif_path = os.path.join(cwd, f'subgroup_cifs_{phase_name}' )
+    # model_name_noext = os.path.splitext(model_filename)[0]
+    # keys = list(confidence_results.keys())
+    # with open(f'./z_{model_name_noext}.txt', 'a') as f:
+    #     f.write('------------------\n')
+    #     f.write(f'Ground Truth Info: \n')
+    #     subgroup_info = funcs.get_subgroup_info(ground_truth_cif, cif_path)
+    #     f.write(f'{subgroup_info[0]}')
+    #     f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
+    #     f.write('------------------\n')
+    #     f.write(f'Prediction Results: \n')
+    #     f.write(f'Evaluated Model: {model_filename}\n')
+    #     f.write(f'{keys}\n\n')
+    #     for i in range(len(keys)):
+    #         subgroup_info = funcs.get_subgroup_info(keys[i], cif_path)
+    #         f.write(f'{subgroup_info[0]}')
+    #         f.write(f'{subgroup_info[1]},  {subgroup_info[2]},  {subgroup_info[3]},  {subgroup_info[4]},  {subgroup_info[5]},  {subgroup_info[6]}\n')
+    #         f.write(f'100 iteration score: {confidence_results[keys[i]]}\n\n')
+    #     f.write(f'\n-----------------------------------------------------------------------------\n\n')

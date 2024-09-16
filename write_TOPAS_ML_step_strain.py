@@ -22,7 +22,7 @@ def main():
     instrument_file = 'mspd.txt'
     peakshape_file = 'mspd_peak_type.txt'
     sub_folder_1 = 'ml_data_generation/randomstates_strain'
-    number_of_random_states = 500
+    number_of_random_states = 1
     topas_version = 'TOPAS6'
     diffraction_type = 'xray'   # choices: neutron or xray
     random_strain_bounds = [-0.01, 0.01]
@@ -155,7 +155,7 @@ def main():
 
         # create random numbers for perturbation of lattice parameters   
         random_perturb_lat = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
-        random_perturb_angle = np.random.uniform(low=random_perturb_bounds[0], high=random_perturb_bounds[1], size=(number_of_random_states, 3))
+        random_perturb_angle = np.random.uniform(low=random_perturb_bounds[2], high=random_perturb_bounds[3], size=(number_of_random_states, 3))
         random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(number_of_random_states, 6))
         
         # create random states folder for subgroup member i

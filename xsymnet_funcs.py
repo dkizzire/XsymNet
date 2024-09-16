@@ -122,7 +122,7 @@ def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     return xtrain, xtest, ytrain, ytest
 
 
-def configure_bragg_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing):
+def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, start_index:int = 0, end_index:int = -1):
     
     filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
 
@@ -132,15 +132,16 @@ def configure_bragg_data_trunc(path2braggdata, trunc_index, n_randomstates, n_te
     ytest_list = []
 
     split_index = n_randomstates - n_testing
+
     for i in range(len(filepaths)):
         temp = torch.load(filepaths[i])
         count = 0
         for j in range(temp.shape[0]):
             if count < split_index:
-                xtrain_list.append(temp[j,trunc_index:])
+                xtrain_list.append(temp[j,start_index:end_index])
                 ytrain_list.append(i)
             else:
-                xtest_list.append(temp[j,trunc_index:])
+                xtest_list.append(temp[j,start_index:end_index])
                 ytest_list.append(i)
             count+=1
 

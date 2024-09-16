@@ -242,6 +242,10 @@ def mspd_inp_lines(xdd_winpath, start_finish_X, refine_instrument_parameters=Fal
     local   !beta1  16.38983 min -100 max 100   'beta1 -2.68722_0.05497 min -100 max 100  
 
 """
+
+
+
+
 # ------ Get info from cif and str files ------
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as f:
@@ -1492,7 +1496,7 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
         if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
     beq_dict: dict
         USE:
-        {'atom_type': [0, 2.5]} -> will use np.random.uniform to pull a random number from the range [0.0, 2.5)
+        {'atom_type': [0, 2.5]} -> will use np.random.uniform to pull a random number from the range [0.0, 2.5]
         {'atom_type': [3.2]}    -> will set the beq value to 3.2 for that atom type
         Note: atom_type can be found in the topas_str file under mode_dependent_sites section
         EX: site Bi1_1 ....  --> atom_type = Bi1
@@ -1519,6 +1523,7 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
     end_str = '\'}}}'
 
     mode_definitions = []
+    other_mode_definitions = []
     mode_amplitudes = []
     distorted_parameters = []
     mode_dependent_sites = []
@@ -1532,7 +1537,13 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
                     break
                 if len(append_lines.split()) < 2:
                     continue
-                mode_definitions.append(append_lines)
+                #* quick change here, to turn off occupancy modes for peter kalifah's data, to go back to normal, comment out if/else and uncomment append line 
+                # mode_definitions.append(append_lines)
+                if '!a' in append_lines:
+                    mode_definitions.append(append_lines)
+                else:
+                    other_mode_definitions.append(append_lines)
+
 
         if mode_amplitude_str in line:
             for append_lines in file_lines[(i+1):]:
@@ -1596,6 +1607,11 @@ def generate_symmetry_mode_lines_from_topas_str(isodistort_str_file, refine_beq 
         mode_definitions_writing = mode_definitions_df.to_string(header=False, index=False)
         mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
         mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+        # in case other modes that are not wanted to be randomized are in topas str, will write them here
+        if len(other_mode_definitions) != 0:
+            mode_definitions_writing.append('\n')
+            for x in range(len(other_mode_definitions)): 
+                mode_definitions_writing.append(f'{other_mode_definitions[x]}')
 
     else:
         mode_definitions_writing = ['\n']
