@@ -9,12 +9,12 @@
 
     bkg  @  1.23166856` -0.0124816464`  0.209502581` -0.119357101` -0.0364802546` -0.0805659581`  0.280382189` -0.180514454`  0.157958349` -0.129704358`  0.215427676`  0.0027121254`
     
-    scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); \'fixb correction local to each bank
+    scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); 'fixb correction local to each bank
     weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
     x_calculation_step = Yobs_dx_at(Xo); convolution_step 4
     TOF_LAM(0.001)
     scale_pks = D_spacing^4;
-    scale_pks = Exp(-mu*2 D_spacing Sin(0.00872664626 two_theta));   \'absorption correction local to each bank
+    scale_pks = Exp(-mu*2 D_spacing Sin(0.00872664626 two_theta));   'absorption correction local to each bank
 
     #define peak1
     #ifdef peak1

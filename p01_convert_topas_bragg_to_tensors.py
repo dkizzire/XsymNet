@@ -7,19 +7,55 @@ import utility_functions as util
 
 cwd = os.getcwd()
 
-do_hkl_intensities = False
-do_diffraction_pattern = True
 
-phase_name = 'nvpf'
+do_diffraction_pattern = True
+do_hkl_intensities = False
+
+phase_name = 'bso'
+ml_randomstates_dir_name = 'randomstates_beta_3'
 experimental_hkl_filename = 'exp_hkl.dat'
-experimental_bragg_filename = 'cif0134_dy.xy'
-ml_randomstates_dir_name = 'randomstates'
+experimental_bragg_filename = 'beta_exp_xy.xy'
+new_experimental_bragg_tensor_name = f'{phase_name}_beta_3_bragg_expt.pt'
+
 
 hkl_tarname = f'{phase_name}_hkl_tensors_notbinned.tar'
-bragg_tarname = f'{phase_name}_bragg_tensors.tar'
+bragg_tarname = f'{phase_name}_{ml_randomstates_dir_name}_bragg_tensors.tar'
 
 transfer_directory = os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_tensors')
 if not os.path.exists(transfer_directory): os.makedirs(transfer_directory)
+
+
+if do_diffraction_pattern == True:
+
+    data_suffix = f'*xy.xy'
+    dir_to_store_data = 'bragg_randomstates_tensors'
+    save_tensor_dir = os.path.join(transfer_directory, dir_to_store_data)
+    if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
+
+    cif_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*')))
+    dirs_basenames = [os.path.basename(x) for x in cif_dirs]
+    
+    tensor_list_percif = []
+    for i in range(len(cif_dirs)):
+        print(f'Working on {dirs_basenames[i]}')
+        bragg_files = sorted(glob.glob(os.path.join(cif_dirs[i], data_suffix)))
+        for j in range(len(bragg_files)):
+            tensor_list_percif.append(util.convert_bragg_to_tensors(bragg_files[j]))
+        
+        stacked_tensor = torch.vstack(tensor_list_percif)
+        torch.save(stacked_tensor, os.path.join(save_tensor_dir, f'{dirs_basenames[i]}_bragg.pt'))
+        tensor_list_percif = []
+    
+    print('Finished creating bragg tensors of randomstates for every cif\n')
+    print('Making tar file of Bragg tensors\n')
+
+    tar_name = os.path.join(transfer_directory, bragg_tarname)
+    util.make_tarfile(tar_name, save_tensor_dir)
+    
+    # make tensor from experimental data
+    path2exp = os.path.join(cwd, 'TOPAS', phase_name, 'experimental_refinement', experimental_bragg_filename)
+    tempexp = util.convert_bragg_to_tensors(path2exp)
+    torch.save(tempexp, os.path.join(transfer_directory, new_experimental_bragg_tensor_name))
 
 if do_hkl_intensities == True:
 
@@ -56,37 +92,3 @@ if do_hkl_intensities == True:
     print('Making Tarball of unbinned hkl Tensors')
     util.make_tarfile(tar_name, save_tensor_dir)
     print(f'Tarball of unbinned hkl tensor files to transfer to GPU for binning stored at {tar_name}')
-
-
-if do_diffraction_pattern == True:
-
-    data_suffix = f'*dy.xy'
-    dir_to_store_data = 'bragg_randomstates_tensors'
-    save_tensor_dir = os.path.join(transfer_directory, dir_to_store_data)
-    if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
-
-    cif_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*')))
-    dirs_basenames = [os.path.basename(x) for x in cif_dirs]
-    
-    tensor_list_percif = []
-    for i in range(len(cif_dirs)):
-        print(f'Working on {dirs_basenames[i]}')
-        bragg_files = sorted(glob.glob(os.path.join(cif_dirs[i], '*dy.xy')))
-        for j in range(len(bragg_files)):
-            tensor_list_percif.append(util.convert_bragg_to_tensors(bragg_files[j]))
-        
-        stacked_tensor = torch.vstack(tensor_list_percif)
-        torch.save(stacked_tensor, os.path.join(save_tensor_dir, f'{dirs_basenames[i]}_bragg.pt'))
-        tensor_list_percif = []
-    
-    print('Finished creating bragg tensors of randomstates for every cif\n')
-    print('Making tar file of Bragg tensors\n')
-
-    tar_name = os.path.join(transfer_directory, bragg_tarname)
-    util.make_tarfile(tar_name, save_tensor_dir)
-    
-    # make tensor from experimental data
-    path2exp = os.path.join(cwd, 'TOPAS', phase_name, 'experimental_refinement', experimental_bragg_filename)
-    tempexp = util.convert_bragg_to_tensors(path2exp)
-    torch.save(tempexp, os.path.join(transfer_directory, f'{phase_name}_bragg_expt.pt'))
-

@@ -15,26 +15,28 @@ import re
 from fractions import Fraction
 
 # ------ Refinement Options  ------
-def refinement_options(iters:int = 0, converge:float = 0.0001, continue_on_convergence:bool = False, anneal:bool = False, anneal_param:float = 0.00001, do_errors:bool = False, limit_warn:bool = False):
-    if continue_on_convergence == False:
-        continue_line = f'\'continue_after_convergence'
-    else:
-        continue_line = f'continue_after_convergence'
+def refinement_options(iters:int = 0, converge:float = 0.0001, continue_on_convergence:bool = False, anneal:bool = False, anneal_param:float = 0.00001, do_errors:bool = False, limit_warn:bool = False, suppress_out_file:bool = False):
     
-    if anneal == False:
-        anneal_line = f'\'Auto_T({anneal_param})  \' simulated annealing'
-    else:
-        anneal_line = f'Auto_T({anneal_param})  \' simulated annealing'
+    continue_line = f"'continue_after_convergence"
+    if continue_on_convergence:
+        continue_line = continue_line[1:]
 
-    if do_errors == False:
-        error_line = f'\'do_errors'
-    else:
-        error_line = f'do_errors'
+    anneal_line = f"'Auto_T({anneal_param})"
+    if anneal:
+        anneal_line = anneal_line[1:]
+
+    error_line = f"'do_errors"
+    if do_errors:
+        error_line = error_line[1:]
     
-    if limit_warn == False:
-        limit_warn_line = f'no_LIMIT_warnings'
-    else:
-        limit_warn_line = f'\'no_LIMIT_warnings'
+    limit_warn_line = f"'no_LIMIT_warnings"
+    if limit_warn:
+        limit_warn_line = limit_warn_line[1:]
+
+    suppress_out_line = f" "
+    if suppress_out_file: 
+        suppress_out_line = f'out_file="";'
+    
     
     refine_lines = f"""\'----------------------------------------### Refinement methods ###----------------------------------------
 iters  {iters}
@@ -43,6 +45,7 @@ chi2_convergence_criteria {converge}
 {anneal_line}
 {error_line}
 {limit_warn_line}
+{suppress_out_line}
 
 r_wp  0.0 r_exp  0.0 r_p  0.0 r_wp_dash  0.0 r_p_dash  0.0 r_exp_dash  0.0 weighted_Durbin_Watson  0.0 gof  0.0
 
@@ -285,7 +288,7 @@ def get_cif_info(cif_path):
             if '_symmetry_space_group_name_H-M' in line:
                 sline = line.split('"') 
                 if '(origin choice' in sline[1]:
-                    tline = sline[1].split(' (origin choice ')
+                    tline = sline[1].split(' (origin choice ') 
                     origin_choice = int(tline[1][0])
                     # print(f'{cif_path} : \t has ({tline[1]}')
                 else: origin_choice = 1
@@ -360,7 +363,7 @@ def get_str_info(str_path, str_type):
 
     latparams = [alat, blat, clat, alpha, beta, gamma]
     sg_o = [sg, origin, sg_name]
-    return latparams, sg_o
+    return latparams, sg_o 
 
 
 def get_pawley_latparams_easy_grab(file):
@@ -484,14 +487,14 @@ def get_cif_info_with_site_info(cif_path):
             if '_symmetry_space_group_name_H-M' in line:
                 sline = line.split('"') 
                 if '(origin choice' in sline[1]:
-                    tline = sline[1].split(' (origin choice ')
+                    tline = sline[1].split(' (origin choice ') 
                     origin_choice = int(tline[1][0])
-                    print(f'{cif_path} : \t has ({tline[1]}')
-                else: origin_choice = 1
+                    print(f'{cif_path} : \t has ({tline[1]}') 
+                else: origin_choice = 1 
 
             #if '_symmetry_space_group_name_H-M' in line:
-            #    origin_name = ':1'
-            #    sline = line.split('"') 
+            #    origin_name = ':1' 
+            #    sline = line.split('"')  
             #    if '(' in sline[1]:
             #        tline = sline[1].split(' (')
             #        sline[1]=tline[0]
@@ -534,7 +537,7 @@ def get_cif_spacegroup_and_origin(cif_path):
                 if '(origin choice' in sline[1]:
                     tline = sline[1].split(' (origin choice ')
                     origin_choice = int(tline[1][0])
-                    # print(f'{cif_path} : \t has ({tline[1]}')
+                    # print(f'{cif_path} : \t has ({tline[1]}') 
 
                 else: origin_choice = 1
 
@@ -2077,7 +2080,7 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str(isodistort_str_file, 
     return all_mode_lines
 
 
-def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, peak_shape_line, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
+def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False, multiphase=False, wt_dets_macro='None', phase_count=None):
     '''
     Parameters
     ----------
@@ -2085,8 +2088,6 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
         Path to str (structure) file generated by isodistort
     spacegroup_origin: list of ints
         the spacegroup and origin choice for the structure
-    peak_shape_line: str
-        Line to describe the peakshape in topas
     random_strain: np array 
         shape=[6], samples of np.random.uniform between min and max values for strain modes 
     custom_latparams: list of floats
@@ -2155,10 +2156,11 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
         if start_str in line:
             for append_lines in file_lines:
                 if 'scale' in append_lines:
-                    if multiphase == True:
-                        str_strain.append(f'\n')
-                    else:
-                        str_strain.append(f'\t\tscale @ 100.0\n')
+                    str_strain.append(f'\n')
+                    # if multiphase == True:
+                    #     str_strain.append(f'\n')
+                    # else:
+                    #     str_strain.append(f'\t\tscale @ 100.0\n')
                     break
                 str_strain.append(append_lines)
 
@@ -2214,8 +2216,8 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
     # ----------------------------------------------------------------------------------------
     # insert peak shape line in str_strain
     # str_strain.insert(4, f'\t\t{peak_shape_line}\n')
-    str_strain.insert(4, f'\t\tpeak_type pv\n\t\tTOF_CS_L (@ , 581.69638, difc_1)\n')
-    str_strain.insert(5, f'\t\tr_bragg 0.0\n')
+    # str_strain.insert(4, f'\t\tpeak_type pv\n\t\tTOF_CS_L (@ , 581.69638, difc_1)\n')
+    # str_strain.insert(5, f'\t\tr_bragg 0.0\n')
     
 
     # section for using custom latparams 
