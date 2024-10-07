@@ -21,7 +21,7 @@ def main():
     conv_criteria = 0.0001
 
     experimental_data_file = f'NVPF_100K_Pattern.xye'
-    experimental_data_path = os.path.join(cwd, 'TOPAS', phase_name, experimental_data_file)
+    experimental_data_path = os.path.join(cwd, phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
     # TOF_x_axis_calibration = 'TOF_x_axis_calibration(t0_hrpd_bs, 24.28584`,!difc_hrpd_bs, 48255.09936_0.61297, difa_hrpd_bs, -25.44401`)'
     # TOF_sample_peakshape = 'tof_sample_peakshape(lor, 0.143711169`, dsp, 11.64083`, dspsq, 11.71737`)'
@@ -62,15 +62,15 @@ def main():
 
 
     # create batchfile for running all pawley refinments sequentially
-    batchfile_folder = os.path.join(cwd, 'TOPAS', phase_name, 'batchfiles_topas')
+    batchfile_folder = os.path.join(cwd, phase_name, 'batchfiles_topas')
     if not os.path.exists(batchfile_folder): os.makedirs(batchfile_folder)
-    batchfile_path = os.path.join(batchfile_folder, f'pawley_refinement_of_experiment_stage_1.bat')
+    batchfile_path = os.path.join(batchfile_folder, f'pawley_refinement_of_experiment.bat')
 
     # ------------------------------------------------------------------------------------------------------
     # END OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
 
-    cif_files = sorted(glob.glob(os.path.join(cwd, f'subgroup_cifs_{phase_name}', f'{primitive_base_structure}.cif')))
+    cif_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'subgroup_cifs_{phase_name}', f'{primitive_base_structure}.cif')))
     cif_filenames = [os.path.basename(x) for x in cif_files]
     cif_noext = [os.path.splitext(x)[0] for x in cif_filenames]
     subgroup_nums = [x[3:] for x in cif_noext]
@@ -91,9 +91,9 @@ def main():
     for i in range(len(cif_files)):
 
         # input file to write
-        topas_input_path = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1) 
+        topas_input_path = os.path.join(cwd, phase_name, sub_folder_1) 
         if not os.path.exists(topas_input_path): os.makedirs(topas_input_path)
-        topas_input_file = os.path.join(topas_input_path, f'experimental_{phase_name}_pawley_stage_1.inp')
+        topas_input_file = os.path.join(topas_input_path, f'experimental_{phase_name}_pawley.inp')
 
         # windows path to input file for batch script
         topas_input_winpath = PureWindowsPath(Path(topas_input_file).absolute())

@@ -1,9 +1,10 @@
 __pycache__/
 .vscode/
 *.pyc
-gpu_binned_data/
-ml_training_data/
-subgroup_cifs*/
-TOPAS/
-transfer2GPU/
-PZT_45_cif
+
+/alpha_beta_old
+/bso
+/nvpf
+/pzt_45
+/pzt_90
+

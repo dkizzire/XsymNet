@@ -12,16 +12,16 @@ do_diffraction_pattern = True
 do_hkl_intensities = False
 
 phase_name = 'bso'
-ml_randomstates_dir_name = 'randomstates_beta_3'
+ml_randomstates_dir_name = 'randomstates_beta_4'
 experimental_hkl_filename = 'exp_hkl.dat'
 experimental_bragg_filename = 'beta_exp_xy.xy'
-new_experimental_bragg_tensor_name = f'{phase_name}_beta_3_bragg_expt.pt'
+new_experimental_bragg_tensor_name = f'{phase_name}_beta_4_bragg_expt.pt'
 
 
 hkl_tarname = f'{phase_name}_hkl_tensors_notbinned.tar'
 bragg_tarname = f'{phase_name}_{ml_randomstates_dir_name}_bragg_tensors.tar'
 
-transfer_directory = os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_tensors')
+transfer_directory = os.path.join(cwd, phase_name, 'ml_data_tensors')
 if not os.path.exists(transfer_directory): os.makedirs(transfer_directory)
 
 
@@ -32,7 +32,7 @@ if do_diffraction_pattern == True:
     save_tensor_dir = os.path.join(transfer_directory, dir_to_store_data)
     if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
 
-    cif_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*')))
+    cif_dirs = sorted(glob.glob(os.path.join(cwd, phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*')))
     dirs_basenames = [os.path.basename(x) for x in cif_dirs]
     
     tensor_list_percif = []
@@ -53,7 +53,7 @@ if do_diffraction_pattern == True:
     util.make_tarfile(tar_name, save_tensor_dir)
     
     # make tensor from experimental data
-    path2exp = os.path.join(cwd, 'TOPAS', phase_name, 'experimental_refinement', experimental_bragg_filename)
+    path2exp = os.path.join(cwd, phase_name, 'experimental_refinement', experimental_bragg_filename)
     tempexp = util.convert_bragg_to_tensors(path2exp)
     torch.save(tempexp, os.path.join(transfer_directory, new_experimental_bragg_tensor_name))
 
@@ -70,14 +70,14 @@ if do_hkl_intensities == True:
 
     
     # grab hkl lists from all randomstates
-    hkl_lists = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*', data_suffix)))
+    hkl_lists = sorted(glob.glob(os.path.join(cwd, phase_name, 'ml_data_generation', ml_randomstates_dir_name,'*', data_suffix)))
     # prepare filenames for writing tensors
     hkl_lists_basenames = [os.path.basename(x) for x in hkl_lists]
     hkl_lists_basenames_noexts = [os.path.splitext(x)[0] for x in hkl_lists_basenames]
     hkl_tensor_writepaths = [f'{save_tensor_dir}/{hkl_lists_basenames_noexts[x]}.pt' for x in range(len(hkl_lists_basenames_noexts))]
 
     # do the same for experimental hkl list
-    experimental_hkl = glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'experimental_refinement', experimental_hkl_filename))
+    experimental_hkl = glob.glob(os.path.join(cwd, phase_name, 'experimental_refinement', experimental_hkl_filename))
     tensor_expt_writepath = os.path.join(transfer_directory, f'{phase_name}_hkl_expt_notbinned.pt')
 
     # convert hkl lists to tensors

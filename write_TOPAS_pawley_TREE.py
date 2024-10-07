@@ -18,7 +18,7 @@ def main():
     diffraction_type = 'xray'   # choices: neutron or xray
 
     experimental_data_file = f'NVPF_100K_Pattern.xye'
-    experimental_data_path = os.path.join(cwd, 'TOPAS', phase_name, experimental_data_file)
+    experimental_data_path = os.path.join(cwd, phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
     
@@ -35,8 +35,8 @@ def main():
     #     bkg_line = 'bkg  @  1.67370339`  0.0515350436`  0.00972952795` -0.12759364`  0.20547493` -0.177201821`  0.116513928` -0.0589855793`  0.0192231893`  0.0184925627` -0.000494961725` -0.000104051593`'
 
     # paths to all cif and topas_str files
-    cif_files = sorted(glob.glob(f'./subgroup_cifs_{phase_name}/*.cif'))
-    str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', '*.str')))
+    cif_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'subgroup_cifs_{phase_name}', '*.cif')))
+    str_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'topas_strs_{phase_name}', '*.str')))
 
     # create batchfiles for running all pawley refinments
     number_of_cifs_in_a_batch = 40
@@ -47,7 +47,7 @@ def main():
         number_of_batchfiles += 1
         batch_count_list.append(batch_remainder)
 
-    batch_dir = f'./TOPAS/{phase_name}/batchfiles_topas'
+    batch_dir = os.path.join(cwd, phase_name, 'batchfiles_topas')
     if not os.path.exists(batch_dir): os.makedirs(batch_dir)
 
 
@@ -87,7 +87,7 @@ def main():
         count += 1
         # input file to write
         # topas_input_path = f'./TOPAS/{phase_name}/{sub_folder_1}/{cif_noext[i]}'
-        topas_input_path = os.path.join(cwd, 'TOPAS', phase_name, sub_folder_1, cif_noext[i])
+        topas_input_path = os.path.join(cwd, phase_name, sub_folder_1, cif_noext[i])
         if not os.path.exists(topas_input_path): os.makedirs(topas_input_path)
         topas_input_file = f'{topas_input_path}/{cif_noext[i]}_pawley.inp'
 

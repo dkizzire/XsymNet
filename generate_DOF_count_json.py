@@ -7,10 +7,10 @@ import os
 phase_name = 'bso'
 multiphase = False
 cwd = os.getcwd()
-str_files = sorted(glob.glob(os.path.join(cwd, 'TOPAS', f'topas_strs_{phase_name}', '*.str')))
+str_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'topas_strs_{phase_name}', '*.str')))
 
 
-ml_dirs = sorted(glob.glob(os.path.join(cwd, 'TOPAS', phase_name, 'ml_data_generation', 'randomstates', '*')))
+ml_dirs = sorted(glob.glob(os.path.join(cwd, phase_name, 'ml_data_generation', 'randomstates', '*')))
 dirnames = [os.path.basename(x).split('_randomstates')[0] for x in ml_dirs]
 dirnames = [x.strip('cif') for x in dirnames]
 print(dirnames)
@@ -37,4 +37,5 @@ for i in range(len(str_files)):
         
 #         dof_dict[multi_list[i]] = count
     
-util.save_dict_to_json(dof_dict, f'./dof_counts_{phase_name}.json')
+dof_save_path = os.path.join(cwd, phase_name, f'./dof_counts_{phase_name}.json')
+util.save_dict_to_json(dof_dict, dof_save_path)
