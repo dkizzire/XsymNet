@@ -1,0 +1,5 @@
+		scale @  14.9479502`
+		r_bragg  0.577686548
+		TCHZ_Peak_Type(pku,-0.03050`, pkv,  0.00479`, pkw, -0.02938`, pkz, 0.02948`, pky, 0.06920`, pkx, 0.02771`)
+		Simple_Axial_Model(axial, 7.79517`)
+		Phase_Density_g_on_cm3( 0.00000)

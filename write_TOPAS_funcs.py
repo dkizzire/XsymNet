@@ -322,10 +322,13 @@ def get_str_info(str_path, str_type):
     if str_type == 'regular':
         oline = lines[4].strip()
         sg_name = oline.split(':')[0].strip("'")
-        if ':' in oline:
-            origin = int(oline.split(':')[1])
-        else:
-            origin = 1
+        origin = 1
+        #* ORIGIN ALWAYS EQUAL 1 WHEN GETTING STR FILE FROM ISODISTORT - THEY DO A TRANSFORMATION ON THEIR SIDE IF IT HAS ORIGIN 2
+
+        # if ':' in oline:
+        #     origin = int(oline.split(':')[1])
+        # else:
+        #     origin = 1
         
         sg = int(lines[5].strip().split()[1])
         alat = float(lines[6].strip().split()[1])
@@ -342,10 +345,12 @@ def get_str_info(str_path, str_type):
             if '\tstr\n' in lines[i]:
                 oline = lines[i+1].strip()
                 sg_name = oline.split(':')[0].strip("'")
-                if ':' in oline:
-                    origin = int(oline.split(':')[1])
-                else:
-                    origin = 1
+                origin = 1
+                #* ORIGIN ALWAYS EQUAL 1 WHEN GETTING STR FILE FROM ISODISTORT - THEY DO A TRANSFORMATION ON THEIR SIDE IF IT HAS ORIGIN 2
+                # if ':' in oline:
+                #     origin = int(oline.split(':')[1])
+                # else:
+                #     origin = 1
             
             if 'space_group' in lines[i]:
                 sg = int(lines[i].strip().split()[1])

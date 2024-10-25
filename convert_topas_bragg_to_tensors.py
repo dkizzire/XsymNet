@@ -12,10 +12,10 @@ do_diffraction_pattern = True
 do_hkl_intensities = False
 
 phase_name = 'bso'
-ml_randomstates_dir_name = 'randomstates_beta_4'
+ml_randomstates_dir_name = 'randomstates_alpha'
 experimental_hkl_filename = 'exp_hkl.dat'
-experimental_bragg_filename = 'beta_exp_xy.xy'
-new_experimental_bragg_tensor_name = f'{phase_name}_beta_4_bragg_expt.pt'
+experimental_bragg_filename = 'alpha_exp_xy.xy'
+new_experimental_bragg_tensor_name = f'{phase_name}_alpha_bragg_expt.pt'
 
 
 hkl_tarname = f'{phase_name}_hkl_tensors_notbinned.tar'

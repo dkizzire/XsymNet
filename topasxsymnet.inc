@@ -6,7 +6,7 @@
 'Returns strained cell parameters
 macro straincell(pa0, pb0, pc0, pal0, pbe0, pga0)
 {
-	prm  !radian  57.2957795
+	prm  !radian  57.295779513082
 	prm  palpha0 = pal0/radian;
 	prm  pbeta0  = pbe0/radian;
 	prm  pgamma0 = pga0/radian;
@@ -23,7 +23,7 @@ macro straincell(pa0, pb0, pc0, pal0, pbe0, pga0)
 'Use basis-transformation matrix to transform from parent-cell to supercell parameters
 macro celltransform(t11, t12, t13, t21, t22, t23, t31, t32, t33)
 {
-	prm  !radian  57.2957795
+	prm  !radian  57.295779513082
 	'parent-lattice basis vectors in cartesian coords
 	prm  pv11 = a0x*(pe1 + 1);
 	prm  pv21 = a0x*(pe6/2);
@@ -56,6 +56,119 @@ macro celltransform(t11, t12, t13, t21, t22, t23, t31, t32, t33)
 	prm  sga = sgamma*radian;
 }
 
+' Local versions of the above macros for use in multiphase refinements
+macro straincell_local(pa0, pb0, pc0, pal0, pbe0, pga0)
+{
+	local  !radian  57.295779513082
+	local  palpha0 = pal0/radian;
+	local  pbeta0  = pbe0/radian;
+	local  pgamma0 = pga0/radian;
+	'parent-lattice basis vectors in cartesian coords
+	local  zzz  = (Cos(palpha0)- Cos(pbeta0)*Cos(pgamma0))/Sin(pgamma0);
+	local  a0x = pa0;
+	local  b0x = pb0*Cos(pgamma0);
+	local  b0y = pb0*Sin(pgamma0);
+	local  c0x = pc0*Cos(pbeta0);
+	local  c0y = pc0*zzz;
+	local  c0z = pc0*Sqrt(1 - Cos(pbeta0)^2 - zzz^2);
+}
+
+'Use basis-transformation matrix to transform from parent-cell to supercell parameters
+macro celltransform_local(t11, t12, t13, t21, t22, t23, t31, t32, t33)
+{
+	local  !radian  57.295779513082
+
+	'parent-lattice basis vectors in cartesian coords
+	local  pv11 = a0x*(pe1 + 1);
+	local  pv21 = a0x*(pe6/2);
+	local  pv31 = a0x*(pe5/2);
+	local  pv12 = b0x*(pe1 + 1) + b0y*(pe6/2);
+	local  pv22 = b0x*(pe6/2)   + b0y*(pe2 + 1);
+	local  pv32 = b0x*(pe5/2)   + b0y*(pe4/2);
+	local  pv13 = c0x*(pe1 + 1) + c0y*(pe6/2) + c0z*(pe5/2);
+	local  pv23 = c0x*(pe6/2)+ c0y*(pe2 + 1) + c0z*(pe4/2);
+	local  pv33 = c0x*(pe5/2)   + c0y*(pe4/2) + c0z*(pe3 + 1);
+
+	'supercell basis vectors in cartesian coords
+	local  sv11 = (t11)*pv11 + (t12)*pv12 + (t13)*pv13;
+	local  sv21 = (t11)*pv21 + (t12)*pv22 + (t13)*pv23;
+	local  sv31 = (t11)*pv31 + (t12)*pv32 + (t13)*pv33;
+	local  sv12 = (t21)*pv11 + (t22)*pv12 + (t23)*pv13;
+	local  sv22 = (t21)*pv21 + (t22)*pv22 + (t23)*pv23;
+	local  sv32 = (t21)*pv31 + (t22)*pv32 + (t23)*pv33;
+	local  sv13 = (t31)*pv11 + (t32)*pv12 + (t33)*pv13;
+	local  sv23 = (t31)*pv21 + (t32)*pv22 + (t33)*pv23;
+	local  sv33 = (t31)*pv31 + (t32)*pv32 + (t33)*pv33;
+
+	'distorted supercell parameters
+	local  sa = Sqrt(sv11^2+sv21^2+sv31^2);
+	local  sb = Sqrt(sv12^2+sv22^2+sv32^2);
+	local  sc = Sqrt(sv13^2+sv23^2+sv33^2);
+	local  salpha = ArcCos((sv12*sv13+sv22*sv23+sv32*sv33)/(sb*sc));
+	local  sbeta  = ArcCos((sv11*sv13+sv21*sv23+sv31*sv33)/(sa*sc));
+	local  sgamma = ArcCos((sv11*sv12+sv21*sv22+sv31*sv32)/(sa*sb));
+	local  sal = salpha*radian;
+	local  sbe = sbeta*radian;
+	local  sga = sgamma*radian;
+}
+
+' macro to control wt% of phases - slightly modified from Matthew Rowles version 
+' -  replaced s1 with scale1 and s##n with scale##n - to avoid conflict with strain mode variables from ISODISTORT
+' - original source : https://topas.awh.durham.ac.uk/doku.php?id=refine_weight_percentage
+macro wt_dets(n,p) { wt_dets(n,p,0) }
+macro wt_dets(n,p,sc)
+{
+	prm m##n = Get(cell_mass) Get(cell_volume);
+	prm x##n = w##n / (m##n (100 - w##n));
+ 
+ 
+	#m_if p == 2; ''there are 2 phases in total
+		#m_if n == 1;
+			''do nothing, as scale1 should already be defined elsewhere
+		#m_elseif n == 2;
+			prm scale##n = x2*scale1*m1;
+		#m_endif
+ 
+	#m_elseif p == 3; ''there are three phases in total
+		#m_if n == 1;
+			prm m_denom = (m2*m3*x2*x3-1);
+		#m_elseif n == 2;
+			prm scale##n = -m1*scale1*x2*(m3*x3+1)/m_denom;
+		#m_elseif n == 3;
+			prm scale##n = -m1*scale1*x3*(m2*x2+1)/m_denom;
+		#m_endif
+ 
+	#m_elseif p == 4;
+		#m_if n == 1;
+			prm m_denom = (2*m2*m3*m4*x2*x3*x4+m2*m3*x2*x3+m2*m4*x2*x4+m3*m4*x3*x4-1);
+		#m_elseif n == 2;
+			prm scale##n = -m1*scale1*x2*(m3*m4*x3*x4+m3*x3+m4*x4+1)/m_denom;
+		#m_elseif n == 3;
+			prm scale##n = -m1*scale1*x3*(m2*m4*x2*x4+m2*x2+m4*x4+1)/m_denom;
+		#m_elseif n == 4;
+			prm scale##n = -m1*scale1*x4*(m2*m3*x2*x3+m2*x2+m3*x3+1)/m_denom;
+		#m_endif
+ 
+ 
+	#m_endif
+
+	scale = scale##n; : sc
+}
+
+
+macro Out_dayton_latparams(file)
+{
+	out file
+	load out_record out_fmt out_eqn {
+	    "_cell_length_a  %2.6f    " = Get(a);
+		"\n_cell_length_b  %2.6f    " = Get(b);
+		"\n_cell_length_c  %2.6f    " = Get(c);
+		"\n_cell_angle_alpha %3.6    " = Get(al);
+		"\n_cell_angle_beta %3.6    " = Get(be);
+		"\n_cell_angle_gamma %3.6    " = Get(ga);
+		"\n_space_group %s" = Get(sp_grp_char);
+		}
+}
 
 macro NeutronDiffraction
 {  
@@ -313,6 +426,5 @@ macro POWGEN_instrument_2
     'local gam2  4.76909_3.15677 
     'local sig3  1
 }
-
 
 

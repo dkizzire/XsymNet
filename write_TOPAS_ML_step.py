@@ -26,7 +26,7 @@ def main():
     topas_version = 'TOPAS6'
     diffraction_type = 'neutron'   #* choices: neutron or xray
     use_strain_modes = True
-    random_strain_bounds = [-0.01, 0.01]
+    random_strain_bounds = [-0.005, 0.005]
     random_perturb_bounds = [-0.1, 0.1, -5.0, 5.0] # bounds for perturbing custom lattice parameters [abc_lo(angstrom), abc_hi(angstrom), angle_lo(degrees), angle_hi(degrees)] 
     use_custom_latparams = False
     overwrite_input_file_with_output_file = True
@@ -84,7 +84,7 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # batch cifs for running in topas in groups of 100 cifs
     # ------------------------------------------------------------------------------------------------------
-    number_of_cifs_in_a_batch = 100
+    number_of_cifs_in_a_batch = 150
     number_of_batchfiles = int(len(cif_files)/number_of_cifs_in_a_batch)
     if make_multiphase_classes == True:
         number_of_batchfiles = int((len(cif_files)+len(multiphase_dict))/number_of_cifs_in_a_batch)
@@ -203,24 +203,7 @@ def main():
                 f.write(xy_out_lines)
                 #f.write(dy_out_lines)
 
-            # mode_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str(str_files[i], 
-            #                                                                           spacegroup_origin, 
-            #                                                                           peakshape_lines, 
-            #                                                                           random_strain[j], 
-            #                                                                           custom_latparams=perturbed_latparams, 
-            #                                                                           refine_beq = refine_beq, 
-            #                                                                           beq_dict = beq_dict)
-            
-            # write the topas input file for cif i random_state j
-            
-            # funcs.write_inp_for_ML_with_strain_modes(beamline_choice,
-            #                                          topas_input_file, 
-            #                                          mode_lines, 
-            #                                          start_finish_X, 
-            #                                          xdd_winpath, 
-            #                                          hkl_out_file=hkl_out_file, 
-            #                                          xy_out_file=xy_out_file,
-            #                                          dy_out_file=dy_out_file)
+
             
         # write a windows batch file to run 100 cifs of random states of input files at a time
         if count == batch_count_list[batch_count]:
