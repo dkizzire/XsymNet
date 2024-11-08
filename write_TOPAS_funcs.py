@@ -10,11 +10,26 @@ import glob
 import math
 import numpy as np
 import pandas as pd
+import torch
 from pathlib import Path, PureWindowsPath
 import re
 from fractions import Fraction
 
-# ------ Refinement Options  ------
+# ------ Helper Functions ------
+def convert_bragg_to_tensors(filepath):
+    '''
+    '''
+
+    # read in hkl lists from topas output and sort the hkl lists by ascending d_spacing
+    bragg = pd.read_csv(filepath, sep='\s+', header = None, names = ['tof','i'], usecols=['i']).T
+    bragg_tensor = torch.tensor(bragg.values, dtype=torch.float)
+
+    return bragg_tensor
+
+
+
+
+# ------ Refinement Options ------
 def refinement_options(iters:int = 0, converge:float = 0.0001, continue_on_convergence:bool = False, anneal:bool = False, anneal_param:float = 0.00001, do_errors:bool = False, limit_warn:bool = False, suppress_out_file:bool = False):
     
     continue_line = f"'continue_after_convergence"
