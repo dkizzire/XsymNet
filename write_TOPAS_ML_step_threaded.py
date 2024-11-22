@@ -5,6 +5,7 @@ Email: kizziredg@ornl.gov
 '''
 
 import os
+import shutil
 import glob
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ import threading
 import queue
 import random
 import time
+from datetime import timedelta
 import subprocess
 
 
@@ -24,15 +26,16 @@ import subprocess
 
 def main():
     cwd = os.getcwd()
+    t0 = time.time()
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
     NUM_THREADS = 5
     material_name = 'bso'
-    phase_name = 'alpha'
+    phase_name = 'alpha_2'
     instrument_file = 'hrpd.txt'
     peakshape_file = 'hrpd_peak_type.txt'
-    number_of_random_states = 250
+    number_of_random_states = 1
     path_to_topas_directory = 'C:\TOPAS6'
     diffraction_type = 'neutron'   #* choices: neutron or xray
     use_strain_modes = True
@@ -74,7 +77,7 @@ def main():
     str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*.str')))
     
 
-    cif_files = sorted(glob.glob(os.path.join(cwd, material_name, f'subgroup_cifs_{material_name}', '*.cif')))
+    cif_files = sorted(glob.glob(os.path.join(cwd, material_name, f'subgroup_cifs_{material_name}', '*')))
     cif_filenames = [os.path.basename(x) for x in cif_files]
     cif_noext = [os.path.splitext(x)[0] for x in cif_filenames]
     subgroup_nums = [x[3:] for x in cif_noext]
@@ -129,15 +132,17 @@ def main():
     
 
     # implement threading with thread_task
-    def thread_task(cwd, material_name, str_file, random_strain_bounds, random_state, diffraction_type, input_dict, beq_dict, path_to_topas_directory):
+    def thread_task(cwd, material_name, phase_name, str_file, random_strain_bounds, random_state, diffraction_type, input_dict, beq_dict, path_to_topas_directory):
 
         thread_id = threading.get_ident()
         str_name = os.path.splitext(os.path.basename(str_file))[0]
         print(f'Thread {thread_id} Writing random states for {str_name}')
 
         # make temporary folder to store input/output data per thread
-        input_path = os.path.join(cwd, material_name, 'ml_data_generation', f'temp_{thread_id}')
+        input_path = os.path.join(cwd, material_name, 'ml_data_generation', phase_name, f'temp_{thread_id}')
         if not os.path.exists(input_path): os.makedirs(input_path)
+        rs_saved_input_folder = os.path.join(cwd, material_name, 'ml_data_generation', phase_name, 'RS_SGT_INP')
+        if not os.path.exists(rs_saved_input_folder): os.makedirs(rs_saved_input_folder)
 
         # grab lattice parameters and spacegroup from str file
         latparams, spacegroup_origin = funcs.get_str_info(str_file, 'strain')
@@ -151,7 +156,7 @@ def main():
 
             topas_input_file = os.path.join(input_path, f'{random_state[i]}.inp')
             topas_input_file_list.append(topas_input_file)
-
+            
             xy_out_file = PureWindowsPath(Path(os.path.join(input_path, f'{random_state[i]}_xy.xy')).absolute())
             dy_out_file = PureWindowsPath(Path(os.path.join(input_path, f'{random_state[i]}_dy.xy')).absolute())
 
@@ -187,7 +192,23 @@ def main():
                 for k in range(len(mode_lines)):
                     f.write(mode_lines[k])
                 f.write(xy_out_lines)
-        
+            # Save the first random state file created for each subgroup for manual running/debugging
+            if i == 0:
+                # write TOPAS input file for this random state
+                rs_saved_input_file = os.path.join(rs_saved_input_folder, f'{str_name}.inp')
+                with open(rs_saved_input_file, 'w') as f:
+                    f.write(input_dict['refinement_lines'])
+                    f.write(input_dict['global_lines'])
+                    f.write(input_dict['xdd_lines'])
+                    f.write(input_dict['instrument_lines'])
+                    # if use_strain_modes == False:
+                    #     f.write(phase_lines)
+                    #     f.write(topas_latparam_lines)
+                    for k in range(len(mode_lines)):
+                        f.write(mode_lines[k])
+                    f.write(xy_out_lines)
+
+
         # Convert topas input path to windows so TOPAS can run it (TOPAS is Windows only)
         inp_winpath = [PureWindowsPath(Path(x).absolute()) for x in topas_input_file_list]
 
@@ -210,7 +231,7 @@ def main():
         # Collect the xy files, strip out the x column, save all random_states y columns into a pytorch tensor and save
         data_suffix = f'*xy.xy'
         dir_to_store_data = 'ml_data'
-        save_tensor_dir = os.path.join(cwd, material_name, dir_to_store_data)
+        save_tensor_dir = os.path.join(cwd, material_name, dir_to_store_data, phase_name)
         if not os.path.exists(save_tensor_dir): os.makedirs(save_tensor_dir)
 
         xy_files = sorted(glob.glob(os.path.join(input_path, data_suffix)))
@@ -219,7 +240,7 @@ def main():
             tensor_list.append(funcs.convert_bragg_to_tensors(xy_files[i]))
             
         stacked_tensor = torch.vstack(tensor_list)
-        torch.save(stacked_tensor, os.path.join(save_tensor_dir, f'{str_name}_rs_bragg.pt'))
+        torch.save(stacked_tensor, os.path.join(save_tensor_dir, f'{str_name}_{material_name}_{phase_name}_rs.pt'))
 
 
     def worker():
@@ -228,7 +249,7 @@ def main():
                 # Retrieve a task without blocking
                 task = task_queue.get_nowait()
                 str_file = task
-                thread_task(cwd, material_name, str_file, random_strain_bounds, random_state, diffraction_type, input_dict, beq_dict, path_to_topas_directory)
+                thread_task(cwd, material_name, phase_name, str_file, random_strain_bounds, random_state, diffraction_type, input_dict, beq_dict, path_to_topas_directory)
                 task_queue.task_done()
             except queue.Empty:
                 # No more tasks are available
@@ -248,6 +269,18 @@ def main():
     for t in threads:
         t.join()
 
+    
+    t1 = time.time()
+    trun = (t1 - t0)
+    timed = timedelta(seconds=trun)
+    # print('Time in hh:mm:ss:', td)
+    
+    print(f'ML Data Generation Has Finished\nRuntime: {timed}')
+
+    temp_folders = sorted(glob.glob(os.path.join(cwd, material_name, 'ml_data_generation', phase_name, 'temp*')))
+    for i in range(len(temp_folders)):
+        shutil.rmtree(temp_folders[i])
+        
 
 if __name__ == "__main__":
     main()

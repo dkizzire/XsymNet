@@ -7,6 +7,7 @@ Email: kizziredg@ornl.gov
 import os
 import glob
 import json
+import math
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -14,6 +15,14 @@ import torch
 from zipfile import ZipFile
 import tarfile
 from sklearn.utils.class_weight import compute_class_weight
+
+
+
+def save_dict_to_json(dictionary, filename):
+    with open(filename, 'w') as f:
+        json.dump(dictionary, f, indent=4)
+
+
 
 def determine_gpu_or_cpu(gpu_index):
     whichgpu = f'cuda:{gpu_index}'
@@ -202,13 +211,77 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
     
     return count
 
+def straincell(pa0, pb0, pc0, pal0, pbe0, pga0):
+    radian = 57.2957795
+    palpha0 = pal0/radian
+    pbeta0  = pbe0/radian
+    pgamma0 = pga0/radian
+    # parent-lattice basis vectors in cartesian coords
+    zzz  = (math.cos(palpha0)- math.cos(pbeta0)*math.cos(pgamma0))/math.sin(pgamma0)
+    a0x = pa0
+    b0x = pb0*math.cos(pgamma0)
+    b0y = pb0*math.sin(pgamma0)
+    c0x = pc0*math.cos(pbeta0)
+    c0y = pc0*zzz
+    c0z = pc0*math.sqrt(1 - math.cos(pbeta0)**2 - zzz**2)
 
-def save_dict_to_json(dictionary, filename):
-    with open(filename, 'w') as f:
-        json.dump(dictionary, f, indent=4)
-        
-        
-        
+    bv = [a0x, b0x, b0y, c0x, c0y, c0z]
+
+    return bv
+
+def celltransform(s_mat, p_mat, bv, tm):
+
+    pe1, pe2, pe3, pe4, pe5, pe6 = p_mat[0], p_mat[1], p_mat[2], p_mat[3], p_mat[4], p_mat[5]
+
+    a0x, b0x, b0y, c0x, c0y, c0z = bv[0], bv[1], bv[2], bv[3], bv[4], bv[5]
+
+    t11, t12, t13, t21, t22, t23, t31, t32, t33 = tm[0], tm[1], tm[2], tm[3], tm[4], tm[5], tm[6], tm[7], tm[8]  
+
+    radian = 57.2957795
+    #parent-lattice basis vectors in cartesian coords
+    pv11 = a0x*(pe1 + 1)
+    pv21 = a0x*(pe6/2)
+    pv31 = a0x*(pe5/2)
+    pv12 = b0x*(pe1 + 1) + b0y*(pe6/2)
+    pv22 = b0x*(pe6/2)   + b0y*(pe2 + 1)
+    pv32 = b0x*(pe5/2)   + b0y*(pe4/2)
+    pv13 = c0x*(pe1 + 1) + c0y*(pe6/2) + c0z*(pe5/2)
+    pv23 = c0x*(pe6/2)+ c0y*(pe2 + 1) + c0z*(pe4/2)
+    pv33 = c0x*(pe5/2)   + c0y*(pe4/2) + c0z*(pe3 + 1)
+    #supercell basis vectors in cartesian coords
+    sv11 = (t11)*pv11 + (t12)*pv12 + (t13)*pv13
+    sv21 = (t11)*pv21 + (t12)*pv22 + (t13)*pv23
+    sv31 = (t11)*pv31 + (t12)*pv32 + (t13)*pv33
+    sv12 = (t21)*pv11 + (t22)*pv12 + (t23)*pv13
+    sv22 = (t21)*pv21 + (t22)*pv22 + (t23)*pv23
+    sv32 = (t21)*pv31 + (t22)*pv32 + (t23)*pv33
+    sv13 = (t31)*pv11 + (t32)*pv12 + (t33)*pv13
+    sv23 = (t31)*pv21 + (t32)*pv22 + (t33)*pv23
+    sv33 = (t31)*pv31 + (t32)*pv32 + (t33)*pv33
+    #distorted supercell parameters
+    sa = math.sqrt(sv11**2+sv21**2+sv31**2)
+    sb = math.sqrt(sv12**2+sv22**2+sv32**2)
+    sc = math.sqrt(sv13**2+sv23**2+sv33**2)
+    salpha = math.acos((sv12*sv13+sv22*sv23+sv32*sv33)/(sb*sc))
+    sbeta  = math.acos((sv11*sv13+sv21*sv23+sv31*sv33)/(sa*sc))
+    sgamma = math.acos((sv11*sv12+sv21*sv22+sv31*sv32)/(sa*sb))
+    sal = salpha*radian
+    sbe = sbeta*radian
+    sga = sgamma*radian
+
+    # print()
+    # print(f's_vars = [{s1:.4f}, {s2:.4f}, {s3:.4f}, {s4:.4f}, {s5:.4f}, {s6:.4f}]')
+    # print(f'a = {sa}')
+    # print(f'b = {sb}')
+    # print(f'c = {sc}')
+    # print(f'al = {sal}')
+    # print(f'be = {sbe}')
+    # print(f'ga = {sga}')
+    # print()
+
+    return sa, sb, sc, sal, sbe, sga
+
+
         
 
 def get_bravais_data_and_labels(y_train_sg_number_list, y_test_sg_number_list):

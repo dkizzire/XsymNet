@@ -11,16 +11,16 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     phase_name = 'wo3'
     diffraction_type = 'xray'   # choices: neutron or xray
-    instrument_file = 'wo3_init.txt'
+    instrument_file = 'wo3.txt'
     peakshape_file = 'wo3_peak_type.txt'
-    sub_folder_1 = 'experimental_refinement'
-    primitive_base_structure = '0131'
+    sub_folder_1 = 'trial_experimental_refinement'
+    primitive_base_structure = '0528'
     use_vc_macro = True
     use_strain_modes = True
     # set convergence criteria
     conv_criteria = 0.0001
 
-    experimental_data_file = f'd8_03901_t1205.xy'
+    experimental_data_file = f'd8_03901_t1103.xy'
     experimental_data_path = os.path.join(cwd, phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 

@@ -1,1 +1,1 @@
-tof_sample_peakshape(lor, 0.143711169`, dsp, 11.64083`, dspsq, 11.71737`)
+tof_sample_peakshape(!lor, 0.143711169`, !dsp, 11.64083`, !dspsq, 11.71737`)
