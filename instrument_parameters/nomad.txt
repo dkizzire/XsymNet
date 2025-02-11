@@ -1,0 +1,312 @@
+#include NOMAD_Bragg_instrument.inc 
+macro file_name {replace_file_name_here} 
+'-----------------------------------------------------------------### tof-to-d conversion, tof = t0 + difc*d + difa * d^2 ### 
+prm !difc1  1420.29010_3.67526 
+prm !difc2  2853.24519_2.01870 
+prm !difc3  5630.18705_3.66965 
+prm !difc4  9047.31525_3.62748 
+prm !difc5  9886.86429_3.46229 
+ 
+prm !t01  -2.70883_3.08892     min -40 max 40' for NAC 
+prm !t02 -2.11955_1.78070    min -40 max 40 
+prm !t03  -20.60111_2.32190    min -40 max 40 
+prm !t04 -11.93783_2.01543     min -40 max 40 
+prm !t05    0.95264_1.76093  min -40 max 40 
+
+'------------------------ can change below, not above -----------------
+prm difa1  0.07711` min -40 max 40 
+prm difa2  9.72435` min -40 max 40 
+prm difa3  1.53081` min -40 max 40 
+prm difa4  14.28534` min -40 max 40 
+prm difa5   34.72999` min -40 max 40 
+ 
+prm difa1_LaB6  1.49989` min -40 max 40 
+prm difa2_LaB6  5.32037` min -40 max 40 
+prm difa3_LaB6 -1.97340` min -40 max 40 
+prm difa4_LaB6 -5.06288` min -40 max 40 
+prm difa5_LaB6  0.22977` min -40 max 40 
+ 
+ 
+prm t01_long  40.00000` min -40 max 40 'only with large d-spacing peaks 
+prm t02_long  0.76220` min -40 max 40  
+prm t03_long  40.00000` min -40 max 40  
+prm t04_long -40.00000` min -40 max 40  
+prm difa11  0.32735` min -40 max 40  
+prm difa22  7.28537` min -40 max 40  
+prm difa33 -16.95156` min -40 max 40  
+prm difa44 -40.00000` min -40 max 40  
+ 
+ 
+prm t01_long_LaB6  13.70728` min -40 max 40 
+prm t02_long_LaB6 -1.54995` min -40 max 40 
+prm t03_long_LaB6  6.55850` min -40 max 40 
+prm t04_long_LaB6 -13.57898` min -40 max 40 
+prm difa11_LaB6   0.79323` min -40 max 40 
+prm difa22_LaB6   5.19396` min -40 max 40 
+prm difa33_LaB6  -4.59939` min -40 max 40 
+prm difa44_LaB6  -4.71493` min -40 max 40 
+ 
+ 
+prm difa1_Si  1.95195`    min -40 max 40 
+prm difa2_Si  3.67861`    min -40 max 40 
+prm difa3_Si -14.70950` min -40 max 40 
+prm difa4_Si -20.21344`   min -40 max 40 
+prm difa5_Si  0.07494`    min -40 max 40 
+'----------------------------------------------------------------- 
+
+ 
+ 
+ 
+'------------------------------------------------------------------ ##structure refinement related parameters##### 
+prm scaleLFP  139888765.00000` min 0.0001 
+prm !scaleLTO  0 min 0.0001 
+prm !scaleCu  0 min 0.0001 
+prm !scaleAl  0 min 0.0001 
+prm !scaleNi  0 min 0.0001 
+prm scalebank2  0.10000` 'min 0.1 max 10 
+prm scalebank3  0.10000` 'min 0.1 max 10 
+prm scalebank4  0.10000` 'min 0.1 max 10 
+prm scalebank5  0.15863` 'min 0.1 max 10 
+ 
+'--------------------------------strain broadening for Si------------------------------------ 
+prm  gama0_sample_bank1     15.39478` min 0   max 2000  ' see GSAS manual for details, it is found that PV function works better than pure Lorentzian function   
+prm  gama1_strain_bank1     9.79722` min 0   max 2000 
+prm  gama2_size_bank1       20.03883` min 0   max 2000 
+prm  sample_lor_bank1       0.36189` min 0.0001 max 1 
+ 
+prm  !gama0_sample_bank2   28.46395 min 0   max 2000 
+prm  !gama1_strain_bank2   51.99068 min 0   max 2000 
+prm  !gama2_size_bank2     11.97153 min 0   max 2000 
+prm  !sample_lor_bank2     0.17616 min 0.0001 max 1 
+ 
+ 
+prm  gama0_sample_bank3   33.27300` min 0   max 2000 
+prm  gama1_strain_bank3   114.44641` min 0   max 2000 
+prm  gama2_size_bank3     0.06033` min 0   max 2000 
+prm  sample_lor_bank3     0.39504` min 0.0001 max 1 
+ 
+prm  gama0_sample_bank4   163.06666` min 0   max 200 
+prm  gama1_strain_bank4   21.52294` min 0   max 200 
+prm  gama2_size_bank4     3.35242` min 0   max 200 
+prm  sample_lor_bank4     0.71233` min 0.0001 max 1 
+ 
+prm gama0_sample_bank5   147.30413` min 0     max 200 
+prm gama1_strain_bank5  31.63998` min 0    max 200 
+prm gama2_size_bank5     2.53294` min 0    max 200 
+prm sample_lor_bank5     0.63708` min 0.0001 max 1 
+	 
+prm !cystallite_size = 0.94* difc5/gama2_size_bank5;:  3669.11669` ' use the highest resoluiton bank to extract crystallite size and microstrain information.  
+prm !sample_microstrain = gama1_strain_bank5/difc5;:  0.00320`
+'------------------------------------------------------------------- 
+ 
+ 
+ 
+'---------------------------------------------# automatically change file names for multiple data sets 
+   
+macro NAC_file_name  {NOM_S2_Mn0p6} 
+  
+'----------------------------------------------- 
+ 
+'------------------------------------------------------------------------------------------ ### Defining data sets ### 
+ 
+' #define NAC_NOMAD_bank1    
+#define NAC_NOMAD_bank2          
+' #define NAC_NOMAD_bank3    
+' #define NAC_NOMAD_bank4    
+' #define NAC_NOMAD_bank5 
+       
+'------------------------------------------------------------------------------------------ ### Defining data sets ### 
+ 
+'------------------------------------------------------------------------------------------ ### Main refinement block ###  
+ 
+ 
+ 
+#ifdef NAC_NOMAD_bank1  
+ 
+xdd NAC_file_name-0.xye  'replace this file  
+r_wp  4.57109769 r_exp  1.74748109 r_p  8.11540692 r_wp_dash  14.8995592 r_p_dash  41.0620515 r_exp_dash  5.69593998 weighted_Durbin_Watson  1.19483526 gof  2.61582097	 
+	NeutronDiffraction_NOMAD                                                                   ' TOF neutron diffraction data 
+	NOMAD_bank1	                                                                               ' bank1 center two theta, L2 distance and absorption refinement  
+	local mu  0.108055748 min 0 max 1 
+	bkg @  0.0837208462 -0.01506836  0.00839472999  0.00107103095  0.000897053034 -0.00235502749  0.00497430779 -0.00327479405  0.0028434576  0.000191142819  0.00018998119  0.00101965134	 
+    'TOF_x_axis_calibration(,t01,,difc1,,difa1)                                                 'use this if no Bragg peak with d_spacing larger than 4 angstrom  
+	TOF_x_axis_calibration_front_scattering_banks(,t01,,t01_long,,difc1,,difa1,,difa11)                                                                            
+     
+ 
+	str                                                                                          ' primary phase  
+	phase_name "bank_15_LFP" 
+    scale @  0.00318485094
+    NOMAD_bank1_ipf                                                                              ' instrument broadening parameter  
+  	sample_broadening(, gama0_sample_bank1,, gama1_strain_bank1,, gama2_size_bank1, , sample_lor_bank1 ) 
+	 
+ 
+ 
+ 
+ 
+#endif 
+ 
+ 
+' filename -1 is for bank 2 since -0 in the filename corresponds to bank 1
+#ifdef NAC_NOMAD_bank2  
+	 
+xdd NAC_file_name-1.xye  'replace this file  
+r_wp  8.65678794 r_exp  0.684366253 r_p  6.56499645 r_wp_dash  23.9763527 r_p_dash  28.972087 r_exp_dash  1.89546132 weighted_Durbin_Watson  0.0106608443 gof  12.6493495	 
+    NeutronDiffraction_NOMAD                      
+    NOMAD_bank2 
+    local mu  0.10169` min 0 max 1 
+    bkg @  0.0808502051` -0.01391647` -0.00412657595`  0.000613098908` -0.001657003` '-0.0052893548 -0.00460314863 -0.00358328544 -0.00493986309 -0.000956875459
+    'TOF_x_axis_calibration(,t02 , ,difc2 , ,  difa2)         ' TOF = zero + difc*d + difa*d^2 
+    TOF_x_axis_calibration_front_scattering_banks(,t02,,t02_long,,difc2,,difa2,,difa22)      
+    start_X 2000
+	finish_X 17000
+    local !NAC 1 
+	local !CaF2 1 
+	str 
+		' scattering angle = bank_32_NAC  ... data usually stored in phase_name
+		phase_name "lxs_trial_1" 
+		scale @  0.004845038`
+		NOMAD_bank2_ipf 
+		sample_broadening(, gama0_sample_bank2,, gama1_strain_bank2,, gama2_size_bank2, , sample_lor_bank2 ) 
+	 
+
+#endif 
+ 
+ 
+#ifdef NAC_NOMAD_bank3  
+ 
+xdd NAC_file_name-2.xye 'replace this file  
+r_wp  8.39158765 r_exp  0.519733345 r_p  6.02530302 r_wp_dash  19.7466798 r_p_dash  20.348801 r_exp_dash  1.22301147 weighted_Durbin_Watson  0.0135912115 gof  16.1459482
+	NeutronDiffraction_NOMAD  
+	NOMAD_bank3 
+	local mu  0.02303 min 0 max 1 
+	bkg @  0.0751776507 -0.00366252174  0.00279569988 -0.00171958381 -0.00160063789  0.00117295902  0.000200180172  0.000215916381  0.00337273146  0.00491198972  0.00397959813  0.00227057679  0.000823646636
+	'TOF_x_axis_calibration(,t03, , difc3, ,difa3) 
+	 TOF_x_axis_calibration_front_scattering_banks(,t03, ,t03_long,, difc3 , ,difa3,,difa33) 
+     start_X 2000
+	 finish_X 18000
+	 
+	local !NAC 1 
+	local !CaF2 1 
+	str 
+	phase_name "bank_67_NAC" 
+	scale @  0.00896796813
+    NOMAD_bank3_ipf 
+    	sample_broadening(, gama0_sample_bank3,, gama1_strain_bank3,, gama2_size_bank3, , sample_lor_bank3 ) 
+	 
+ 
+ 
+ 
+#endif 
+ 
+ 
+ 
+ 
+ 
+#ifdef NAC_NOMAD_bank4  
+  
+xdd NAC_file_name-3.xye 'replace this file  
+r_wp  7.92311477 r_exp  0.566372203 r_p  5.54496274 r_wp_dash  22.2647453 r_p_dash  19.4749569 r_exp_dash  1.59156256 weighted_Durbin_Watson  0.0156759079 gof  13.9892366
+	 
+	NeutronDiffraction_NOMAD  
+    NOMAD_bank4 
+	local mu  0.00000 min 0 max 1		 
+	bkg @  0.0695640411 -0.00876497448  0.00594363829 -9.51509746e-005  0.0019776187 -0.00264346009 '-0.00187188443  6.00083883e-005  0.00448938946 -0.00132614679 -0.00232015987 -0.00129304114  0.00309677376
+	'TOF_x_axis_calibration(,t04 , ,difc4 , ,difa4) 
+	 TOF_x_axis_calibration_front_scattering_banks(,t04, ,t04_long,, difc4 , ,difa4,,difa44) 
+        start_X 3000
+	 finish_X 16000
+  local !NAC 1 
+	local !CaF2 1 
+	str 
+	phase_name "bank_122_NAC" 
+	scale @  0.0131089516
+    NOMAD_bank4_ipf 
+ 	sample_broadening(, gama0_sample_bank4,, gama1_strain_bank4,, gama2_size_bank4, , sample_lor_bank4 ) 
+	 
+ 
+ 
+ #endif 
+ 
+  
+  
+  
+  
+#ifdef NAC_NOMAD_bank5 
+ 
+xdd NAC_file_name-4.xye   'replace this file  
+r_wp  7.53653948 r_exp  0.61132343 r_p  5.48855546 r_wp_dash  20.3505953 r_p_dash  19.3376137 r_exp_dash  1.65073052 weighted_Durbin_Watson  0.0270598596 gof  12.328236 
+    NeutronDiffraction_NOMAD 
+    NOMAD_bank5 
+	local mu  0.00000 min 0 max 1 
+    bkg @  0.0688737481 -0.00537165652  0.00365632834  0.00275442203  0.00511281747 -0.00170415104 -0.00397442375 -0.00593258527  9.049539e-005 '-0.00562908461  0.000376003634  0.000721322472  0.000533909438
+	TOF_x_axis_calibration(,t05 , , difc5, ,difa5) 
+	  
+	 start_X 5000
+	 finish_X 15000
+	str 
+	phase_name "bank_154_LFP" 
+	scale @  0.0128764098
+    NOMAD_bank5_ipf 
+		sample_broadening(, gama0_sample_bank5,, gama1_strain_bank5,, gama2_size_bank5, , sample_lor_bank5 ) 
+	 
+ 
+	 
+#endif 
+
+
+'-----------------------------------------------------------------------
+prm !tspow   0.26012_0.46845 min 0.01 max 5.5  
+prm !alph0   6.63435_1.90309 min 0.0001 
+prm !alph1   0.01745_0.87312 min 0.0001 
+prm !beta0   0.00010_0.01728 min 0.0001 
+prm !beta1   0.77385_0.15070 min 0.0001 
+prm !k_eff   278.64531_45.08282 min 0.0001 max 100000 
+prm !hk      1.70815_0.51561 min 0.0001 
+'----------------------------------------------------------------- 
+prm  !sigma0_bank1  0.00000_190.77105 min 0           max 5000 
+prm  !sigma1_bank1  1343.44659_190.59290 min 0        max 5000 
+prm  !sigma2_bank1  320.00283_33.15729 min 0          max 5000 
+prm  !sigma1_long_bank1  5000.00000_340.96188 min 0   max 5000 
+prm  !sigma2_long_bank1  56.92977_21.22494 min 0       max 5000 
+prm  !sigma1e_bank1 0  
+prm  !sigma2e_bank1 0 
+prm  !phitheta_bank1 90 
+prm  !sigma0_bank2  359.19667_154.94016 min 0      max 5000 
+prm  !sigma1_bank2  2203.08447_201.64639 min 0   max 5000 
+prm  !sigma2_bank2  1091.79695_55.49866 min 0      max 5000 
+prm  !sigma1_long_bank2  5000.00000_74.37218 min 0   max 5000 
+prm  !sigma2_long_bank2  254.26726_8.18301 min 0       max 5000 
+ 
+ 
+prm  !sigma1e_bank2 0  
+prm  !sigma2e_bank2 0 
+prm  !phitheta_bank2 90 
+prm  !sigma0_bank3  766.59190_149.10677 min 0   max 5000 
+prm  !sigma1_bank3  5000.00000_188.43404 min 0   max 5000 
+prm  !sigma2_bank3  457.69250_48.34978 min 0   max 5000 
+prm  !sigma1_long_bank3  3691.66279_177.09373 min 0   max 5000 
+prm  !sigma2_long_bank3  648.06595_36.87080 min 0       max 5000 
+prm  !sigma1e_bank3 0  
+prm  !sigma2e_bank3 0 
+prm  !phitheta_bank3 90 
+prm  !sigma0_bank4  1161.33224_68.35456 min 0   max 5000 
+prm  !sigma1_bank4  12.09941_106.34473 min 0     max 5000 
+prm  !sigma2_bank4  931.95502_40.04382 min 0   max 5000 
+prm  !sigma1_long_bank4  227.82377 min 0   max 5000 
+prm  !sigma2_long_bank4  1088.93571 min 0       max 5000 
+ 
+prm  !sigma1e_bank4   0 
+prm  !sigma2e_bank4   0 
+prm  !phitheta_bank4 90 
+prm  !sigma0_bank5  121.33904_29.50975 min 0   max 5000 
+prm  !sigma1_bank5  156.07635_54.26293 min 0   max 5000 
+prm  !sigma2_bank5  135.35457_27.85021 min 0   max 5000 
+prm  !sigma1e_bank5 0  
+prm  !sigma2e_bank5 0 
+prm  !phitheta_bank5 90 
+prm !lor_bank1   0.15063_0.03683 min 0 max 1 
+prm !lor_bank2   0.13897_0.01272 min 0 max 1 
+prm !lor_bank3   0.41705_0.00772 min 0 max 1 
+prm !lor_bank4   0.64374_0.00858 min 0 max 1 
+prm !lor_bank5   0.37677_0.01364 min 0 max 1 
+'----------------------------------------------------------------- 

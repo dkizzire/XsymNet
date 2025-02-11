@@ -5,6 +5,56 @@ import numpy as np
 import torch
 from sklearn.preprocessing import MaxAbsScaler
 
+
+
+
+def configure_bragg_data_trunc(path2braggdata, expt, n_randomstates, n_testing, scaling_dict={}, start_index:int = 0, end_index:int = -1):
+    
+    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+
+    xtrain_list = []
+    xtest_list = []
+    ytrain_list = []
+    ytest_list = []
+
+    split_index = n_randomstates - n_testing
+
+    keys = list(scaling_dict.keys())
+
+    expt_min = torch.min(expt)
+    expt_max = torch.max(expt)
+    print(f'\n\nIn Configure Bragg PreScaling:\nExpt Pawley MAX:{expt_max:.2f}\nExpt Pawley MIN:{expt_min:.2f}\n')
+
+    for i in range(len(filepaths)):
+        temp = torch.load(filepaths[i])
+        #! Turn ManualScale on/off here
+        #temp = ManualScale(temp, expt_max, i)
+        #temp = ManualScaleConstant(temp, scalefactor=1)
+        #^ here we apply the optimal scale factor for each subgroup
+        if len(keys) > 0:
+            temp_max = torch.max(temp)
+            temp = temp*scaling_dict[keys[i]]
+            scaled_max = torch.max(temp)
+            print(f'SGT {os.path.splitext(os.path.basename(filepaths[i]))[0]} max: {temp_max:.2f}   scaled: {scaled_max:.2f}')
+
+        count = 0
+        for j in range(temp.shape[0]):
+            if count < split_index:
+                xtrain_list.append(temp[j,start_index:end_index])
+                ytrain_list.append(i)
+            else:
+                xtest_list.append(temp[j,start_index:end_index])
+                ytest_list.append(i)
+            count+=1
+
+    xtrain = torch.vstack(xtrain_list)
+    xtest = torch.vstack(xtest_list)
+    ytrain = torch.tensor(ytrain_list)
+    ytest = torch.tensor(ytest_list)
+    print('End of Congigure Bragg Data Truncated\n\n')
+    return xtrain, xtest, ytrain, ytest
+
+
 def MaxAbsScale(X_train_load, X_test_load):
     '''
     Purpose: 
@@ -42,15 +92,24 @@ def MinMaxScale(tensor):
 
 
 def MinMaxScale_2d(train, test, expt=None, scale=1):
+
+    expt_min = 0
+    expt_max = 0
+    if expt != None:
+        expt_min = torch.min(expt)
+        expt_max = torch.max(expt)
     
     min_val = torch.min(train)
     max_val = torch.max(train)
-
+    print(f'MinMaxScale2d prescale:\nExpt Pawley MAX:{expt_max:.2f}\nExpt Pawley:{expt_min:.2f}\n')
+    print(f'Training MAX:{max_val:.2f}\nTraining MIN:{min_val:.2f}\n')
     train_scaled = ((train-min_val) / (max_val - min_val))*scale
     test_scaled = ((test - min_val) / (max_val - min_val))*scale
     if expt != None:
         expt_scaled = ((expt - min_val) / (max_val - min_val))*scale
     
+    print(f'MinMaxScale2d postscale:\nExpt Pawley MAX:{torch.max(expt_scaled):.2f}\nExpt Pawley MIN:{torch.min(expt_scaled):.2f}\n')
+    print(f'Training MAX:{torch.max(train_scaled):.2f}\nTraining MIN:{torch.min(train_scaled):.2f}\n')
     return train_scaled, test_scaled, expt_scaled
 
 
@@ -122,35 +181,41 @@ def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     return xtrain, xtest, ytrain, ytest
 
 
-def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, start_index:int = 0, end_index:int = -1):
+# def ManualScale(data, expt, num_sgs, n_randomstates):
+
+#     expt_max = torch.max(expt)
+#     print(f'\n\nexpt_max: {expt_max}\n\n')
+#     scaled_data = data
+#     for i in range(num_sgs):
+
+#         a = i*n_randomstates
+#         b = a+n_randomstates
+#         temp_max = torch.max(data[a:b])
+#         scaling = expt_max/temp_max
+#         scaled_data[a:b] = data[a:b]*scaling
+#         temp2_max = torch.max(data[a:b])
+#         print(f'subgroup {i} max: {temp_max}, {temp2_max}, {scaling}')
+#     return scaled_data
+
+
+def ManualScale(data, expt_max, i):
+
+    temp_max = torch.max(data)
+    scaling = expt_max/temp_max
+    scaled_data = data*scaling
     
-    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+    print(f'subgroup {i} max: {temp_max}, {torch.max(scaled_data)}, {scaling}')
 
-    xtrain_list = []
-    xtest_list = []
-    ytrain_list = []
-    ytest_list = []
+    return scaled_data
 
-    split_index = n_randomstates - n_testing
+def ManualScaleConstant(data, scalefactor):
 
-    for i in range(len(filepaths)):
-        temp = torch.load(filepaths[i])
-        count = 0
-        for j in range(temp.shape[0]):
-            if count < split_index:
-                xtrain_list.append(temp[j,start_index:end_index])
-                ytrain_list.append(i)
-            else:
-                xtest_list.append(temp[j,start_index:end_index])
-                ytest_list.append(i)
-            count+=1
+    scaled_data = data*scalefactor
+    
+    return scaled_data
 
-    xtrain = torch.vstack(xtrain_list)
-    xtest = torch.vstack(xtest_list)
-    ytrain = torch.tensor(ytrain_list)
-    ytest = torch.tensor(ytest_list)
 
-    return xtrain, xtest, ytrain, ytest
+
 
 
 def configure_hkl_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing, maplocation):

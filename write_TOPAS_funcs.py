@@ -27,6 +27,9 @@ def convert_bragg_to_tensors(filepath):
     return bragg_tensor
 
 
+def assert_positive_integer(value):
+    assert isinstance(value, int), "Value must be an integer"
+    assert value > 0, "Value must be positive"
 
 
 # ------ Refinement Options ------
@@ -1180,6 +1183,67 @@ def get_strainmode_latparams_from_topas_out(file):
     return refined_latparams, sg_o
 
 
+def get_rwp_from_out(file):
+    '''
+    Parameters
+    ----------
+    file: str
+        path to the topas out file
+        
+    Returns:
+        list of lattice parameters: [a,b,c,alpha,beta,gamma]
+        space_group: int
+        origin: int
+        rwp: float (goodness of fit from TOPAS)
+
+    Purpose:
+        This function is used to retrieve lattice parameters refined by topas
+
+    Important Note:
+        In the str or hkl_Is section, you must have the following lines in order: 
+        phase_name
+        a
+        b
+        c
+        al
+        be
+        ga
+        space_group
+    '''
+    in_lines = []
+    with open(file,'r') as f:
+        in_lines = f.readlines()
+        
+    
+    rwp_index = 0
+    space_index = 0
+    lat_index = 0
+    for i in range(len(in_lines)):
+        # if "r_wp" in in_lines[i]:
+        if "xdd NAC_file_name-1.xye  'replace this file  " in in_lines[i]:
+            rwp_index = i+1
+        if "space_group " in in_lines[i]:
+            space_index = i
+        if "a  = sa;:" in in_lines[i]:
+            lat_index = i
+
+            break
+    
+    rwp = float(in_lines[rwp_index].strip().strip('`').split()[1])
+    space_group = in_lines[space_index].strip().split()[1]
+    a = float(in_lines[lat_index].strip().split()[3].strip('`'))
+    b = float(in_lines[lat_index+1].strip().split()[3].strip('`'))
+    c = float(in_lines[lat_index+2].strip().split()[3].strip('`'))
+    alpha = float(in_lines[lat_index+3].strip().split()[3].strip('`'))
+    beta = float(in_lines[lat_index+4].strip().split()[3].strip('`'))
+    gamma = float(in_lines[lat_index+5].strip().split()[3].strip('`'))
+    herman = in_lines[space_index-1].strip().strip("'")
+
+    refined_latparams = [a, b, c, alpha, beta, gamma]
+
+    return refined_latparams, space_group, herman, rwp
+
+
 def get_rwp_latparams_from_primitive_refinements(file):
     '''
     Parameters
@@ -1307,7 +1371,35 @@ def get_basis_transformation_matirx(cif_path):
 
     return basis_cols, origin
 
+# def get_info_from_topas_out(file):
+#     '''
+#     Parameters
+#     ----------
+#     file: str
+#         path to the topas out file
+        
+#     Returns:
+#         Rwp, scale, 
+#     '''
+#     in_lines = []
+#     with open(file,'r') as f:
+#         in_lines = f.readlines()
+        
+#     print(f'read info from : {file}')
+    
+#     rwp_index = 0
+#     phase_index = 0
+#     for i in range(len(in_lines)):
+#         if "r_wp" in in_lines[i]:
+#             rwp_index = i
+#         if "phase_name" in in_lines[i]:
+#             phase_index = i
+#         if "load hkl_m_d_th2 I" in in_lines[i]:
+#             break
+    
 
+
+#     return refined_latparams
 
 
 
@@ -2109,7 +2201,8 @@ def parse_topas_str(file_lines, end_string, i):
         return parsed_block
 
 
-def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, use_vc_ma_macro=False):
+
+def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_ma_macro=False):
     '''
     Parameters
     ----------
@@ -2237,9 +2330,13 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
                     if len(split) == 0:
                         break
                     split = str_strain[j].split()
-                    new_strain = float(split[2]) + random_strain[random_count]
-                    strain_refine = split[1].strip('!')
-                    newline = f'\t\t{split[0]}  {strain_refine}      {new_strain:.8f} {split[3]}  {split[4]} {split[5]}  {split[6]} {split[7]}\n'
+                    # new_strain = float(split[2]) + random_strain[random_count]
+                    new_strain = random_strain[random_count]
+                    #! comment out .strip('!') in following line if not doing refinement
+                    strain_refine_line = split[1]
+                    if refine_strain == True:
+                        strain_refine_line = split[1].strip('!')
+                    newline = f'\t\t{split[0]}  {strain_refine_line}      {new_strain:.8f} {split[3]}  {split[4]} {split[5]}  {split[6]} {split[7]}\n'
                     random_count += 1
                     str_strain[j] = newline
                 break
@@ -2266,7 +2363,8 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
             vc_column = ['vc min']*len(mode_definitions_df)
             mode_definitions_df[3] = vc_column
 
-            # remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
+        #! remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
+        if refine_distortion == True:
             mode_var_names = mode_definitions_df[1].tolist()
             mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
             mode_definitions_df[1] = mode_var_names
@@ -2377,8 +2475,6 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
 
 
     return all_mode_lines
-
-
 
 
 
@@ -2754,7 +2850,6 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_multiphase(isodistort
 
 
     return all_mode_lines
-
 
 
 

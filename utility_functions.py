@@ -6,43 +6,33 @@ Email: kizziredg@ornl.gov
 
 import os
 import glob
-import json
-import math
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import torch
 from zipfile import ZipFile
 import tarfile
-from sklearn.utils.class_weight import compute_class_weight
-
-
-
-def save_dict_to_json(dictionary, filename):
-    with open(filename, 'w') as f:
-        json.dump(dictionary, f, indent=4)
-
-
+import json
+import math 
 
 def determine_gpu_or_cpu(gpu_index):
     whichgpu = f'cuda:{gpu_index}'
 
-    device = (
+    determine = (
         "cuda" if torch.cuda.is_available()
         else "cpu" )  
 
-    if device == 'cuda':
-        print(f"Using {device} device")
-        cuda0 = torch.device(whichgpu)
-        print(f'CUDA device properties: \n', torch.cuda.get_device_properties(cuda0))
+    if determine == 'cuda':
+        print(f"Using {determine} device")
+        device = torch.device(whichgpu)
+        print(f'CUDA device properties: \n', torch.cuda.get_device_properties(device))
         print(f'Pytorch CUDA state initialized : {torch.cuda.is_initialized()}')
-        torch.cuda.set_device(cuda0)
-        maplocation = cuda0
 
-    elif device == 'cpu':
-        maplocation = 'cpu'
 
-    return maplocation
+    elif determine == 'cpu':
+        device = 'cpu'
+
+    return device
 
 
 def convert_hkl_list_to_tensors(filepath, tensor_writepath):
@@ -50,7 +40,7 @@ def convert_hkl_list_to_tensors(filepath, tensor_writepath):
     '''
 
     # read in hkl lists from topas output and sort the hkl lists by ascending d_spacing
-    hkl = pd.read_csv(filepath, sep='\s+', header = None, names = ['d','i'], dtype=np.float32)
+    hkl = pd.read_csv(filepath, sep='\s+', header = None, names = ['d','i'], dtype=np.float64)
     sorted_hkl = hkl.sort_values(by=['d'], ascending=True)
     hkl_tensor = torch.tensor(sorted_hkl.values, dtype=torch.float)
 
@@ -136,14 +126,15 @@ def create_bin_edges(phase_name, c, lowest_d_value, largest_d_value):
     # write bin centers and bin edges to files
     save_dir = os.path.join(cwd, 'ml_data', phase_name)
     if not os.path.exists(save_dir): os.makedirs(save_dir)
-    with open(os.path.join(save_dir, f'{phase_name}_bin_centers_{cstring}.txt', 'w')) as f:
+    with open(os.path.join(save_dir, f'{phase_name}_bin_centers_{cstring}.txt'), 'w') as f:
         for i in range(len(bin_centers)):
             f.write(f'{bin_centers[i]}\n')
 
-    with open(os.path.join(save_dir, f'{phase_name}_bin_edges_{cstring}.txt', 'w')) as f:
+    with open(os.path.join(save_dir, f'{phase_name}_bin_edges_{cstring}.txt'), 'w') as f:
         for i in range(len(bin_edges)):
             f.write(f'{bin_edges[i]}\n')
 
+    print(f'Bin centers and bin edges files were written to {save_dir}')
 
     return bin_edges
 
@@ -164,6 +155,11 @@ def make_tarfile(tar_name, source_dir):
     '''
     with tarfile.open(tar_name, "w") as tar:
         tar.add(source_dir, arcname=os.path.basename(source_dir))
+
+
+def save_dict_to_json(dictionary, filename):
+    with open(filename, 'w') as f:
+        json.dump(dictionary, f, indent=4)
 
 
 def count_refinable_parameters_in_topas_strs(topas_str_path):
@@ -211,6 +207,18 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
     
     return count
 
+
+def count_dofs_topas_strs_dir(topas_str_dir, dof_count_save_path):
+    strs = sorted(glob.glob(os.path.join(topas_str_dir, '*')))
+    names = [os.path.basename(x).strip('topas').strip('.str') for x in strs]
+    dof_dict = {}
+    for i in range(len(strs)):
+        dof = count_refinable_parameters_in_topas_strs(strs[i])
+        dof_dict[names[i]] = dof
+    
+    save_dict_to_json(dof_dict, dof_count_save_path)
+    
+
 def straincell(pa0, pb0, pc0, pal0, pbe0, pga0):
     radian = 57.2957795
     palpha0 = pal0/radian
@@ -228,6 +236,7 @@ def straincell(pa0, pb0, pc0, pal0, pbe0, pga0):
     bv = [a0x, b0x, b0y, c0x, c0y, c0z]
 
     return bv
+
 
 def celltransform(s_mat, p_mat, bv, tm):
 
@@ -280,100 +289,3 @@ def celltransform(s_mat, p_mat, bv, tm):
     # print()
 
     return sa, sb, sc, sal, sbe, sga
-
-
-        
-
-def get_bravais_data_and_labels(y_train_sg_number_list, y_test_sg_number_list):
-    with open('/home/dx6/ESS/dict_spacegroup_2_bravais_integer_labels.json', 'r') as f: 
-        label_converter2 = json.load(f)
-
-    y_train_bravais_init_str = [str(x) for x in y_train_sg_number_list]
-    y_test_bravais_init_str = [str(x) for x in y_test_sg_number_list]
-    y_train_bravais_init = [label_converter2.get(x) for x in y_train_bravais_init_str]
-    y_test_bravais_init = [label_converter2.get(x) for x in y_test_bravais_init_str]
-
-    # this block of code makes sure that target labels are in the range `t >= 0 && t < n_classes`
-    classes=np.unique(y_train_bravais_init)
-    int_labels_4_bravais = np.arange(len(classes))
-    int_labels_4_bravais_map = {k: v for k,v in zip(classes,int_labels_4_bravais)}
-    y_train_bravais = [int_labels_4_bravais_map.get(x) for x in y_train_bravais_init]
-    y_test_bravais = [int_labels_4_bravais_map.get(x) for x in y_test_bravais_init]
-
-    # create weights tensor to fix class imbalance
-    class_weights_bravais = compute_class_weight('balanced', classes=np.unique(y_train_bravais), y=y_train_bravais)
-    class_weights_bravais = torch.tensor(class_weights_bravais).float()
-    y_train_bravais = torch.tensor(y_train_bravais)
-    y_test_bravais = torch.tensor(y_test_bravais)
-    
-    return y_train_bravais, y_test_bravais, class_weights_bravais
-
-
-def write_error_jsons(y_test_sg_number_list, incorrect, inv_map): 
-    with open('/home/dx6/ESS/jacs_dict.json', 'r') as f: 
-        jacs_info = json.load(f)
-
-    incorrect_sg = []
-    for i in range(len(incorrect)):
-        temp_incorrect_sg = [inv_map.get(x) for x in incorrect[i]]
-        incorrect_sg.append(temp_incorrect_sg)
-
-    sg_true_negative = []
-    for i in range(len(incorrect_sg)):
-        for j in range(len(incorrect_sg[i])):
-            if incorrect_sg[i][j] == None:
-                continue
-            else:
-                sg_true_negative.append(incorrect_sg[i][j])
-                break
-
-
-    # create mapping dict with testing classes and class counts 
-    y_test_list = [int(x) for x in y_test_sg_number_list]
-    y_test_unique, y_test_unique_counts = np.unique(y_test_list, return_counts=True)
-    y_test_map = {int(k):int(v) for k,v in zip(y_test_unique, y_test_unique_counts)}
-    # create mapping dict with incorrectly labeled classes and how many of each
-    unique_TN, TN_counts = np.unique(sg_true_negative, return_counts=True)
-    unique_TN_list = [int(x) for x in unique_TN]
-    # get the space group long and short name and origin of every incorrectly labeled class
-    jacs_sg_names = [jacs_info.get(x) for x in unique_TN]
-    # get the number of samples in the testing set for each incorrectly labeled class
-    y_test_class_counts = [y_test_map.get(x) for x in unique_TN_list]
-    percent_incorrect = [100*(x/y) for x,y in zip(TN_counts, y_test_class_counts)]
-    # create a mapping dict with the space groups that were incorrectly labeled with: num_incorrect out of total, & the space group info
-    TN_map = {int(k): [int(v), 'incorrect out of', a, b] for k, v, a, b in zip(unique_TN, TN_counts, y_test_class_counts, jacs_sg_names)}
-    TN_map_percent = {int(k): [float(v), 'percent incorrect', b] for k, v, b in zip(unique_TN, percent_incorrect, jacs_sg_names)}
-    # sort the dict by the most incorrectly labeled space group to the least (unfortunately a function of how many of each class were in the testing data set)
-    sorted_TN_map = sorted(TN_map.items(), key=lambda x:x[1], reverse=True)
-    converted_TN_map = dict(sorted_TN_map)
-    json_object = json.dumps(TN_map, indent=4, sort_keys=True)
-    json_object_sorted = json.dumps(converted_TN_map, indent=4)
-    # sort the percentage incorrect dict by percentage incorrect
-    sorted_TN_map_percent = sorted(TN_map_percent.items(), key=lambda x:x[1], reverse=True)
-    converted_TN_map_percent = dict(sorted_TN_map_percent)
-    json_object_sorted_percent = json.dumps(converted_TN_map_percent, indent=4)
-    # write the sorted dicts to json files :: 1 sorted by space group in ascending order, 2 sorted by space group with the most incorrect classifications
-    with open('/home/dx6/ESS/incorrect_predictions_by_SG.json', 'w') as f:
-        f.write(json_object)
-    with open('/home/dx6/ESS/incorrect_predictions_by_ERROR.json', 'w') as f:
-        f.write(json_object_sorted)
-    with open('/home/dx6/ESS/incorrect_predictions_by_PERCENT_ERROR.json', 'w') as f:
-        f.write(json_object_sorted_percent)
-
-
-
-
-# with open('/home/dx6/ESS/jacs_convert_sg_number_2_index.json', 'r') as f: 
-#     label_converter = json.load(f)
-
-# # convert labels (space group numbers) from storage tensor to list
-# y_train_sg_number_list = y_train_sg_number.tolist()
-# y_test_sg_number_list = y_test_sg_number.tolist()
-
-# # convert space grounp numbers (ints) to strs
-# y_train_sg_number_list = [str(x) for x in y_train_sg_number_list]
-# y_test_sg_number_list = [str(x) for x in y_test_sg_number_list]
-
-# # convert space group number (strs) to integer labels where integer labels (t) satisfy condition (`t >= 0 && t < n_classes`)
-# y_train_init = [label_converter.get(x) for x in y_train_sg_number_list]
-# y_test_init = [label_converter.get(x) for x in y_test_sg_number_list]
