@@ -19,6 +19,8 @@ import utility_functions as util
 import xsymnet_funcs as funcs
 import xsymnet_classes as xsym
 
+import optuna
+
 t0 = time.time()
 cwd = os.getcwd()
 
@@ -37,26 +39,29 @@ cwd = os.getcwd()
 #^ device = f'cuda:{selected_gpus[0]}'
 
 # Set available GPUs
-selected_gpus = [0, 1, 2, 3]
+selected_gpus = [0, 1, 6, 7]
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, selected_gpus))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Now, selected_gpus are remapped as [0, 1, 2, 3]
+logical_gpus = list(range(len(selected_gpus)))
 
 #============================================================================================
 # Input phase
 #============================================================================================
 material_name = 'wo3'
-phase_name = '1103K'
-epochs = 250
+phase_name = '1085K'
+epochs = 150
 training_batchsize = 512
 confidence_iterations = 100
-scheduler_milestones = [175]
+scheduler_milestones = [40, 130]
 
 train_model = True
-path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_1103K_localattention_03.pt'
+path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_multiheadattention_02.pt'
 # path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_1103K_multihead_02.pt'
 
 classify_experiment = True
-experimental_p1_filename = 'P1_wo3_1103K_xy.xy'
+# experimental_p1_filename = 'd8_03901_t1103.xy'
+experimental_p1_filename = 'P1_wo3_1085K_xy.xy'
 
 warmstart_model = False
 # warmstart_path = f'/netdisk/dx6/saved_models/wo3_p4nmm_parent_e25_manualscaling.pt'
@@ -65,10 +70,10 @@ warmstart_path = f'/netdisk/dx6/saved_models/wo3_1103K_e250_1103K_multihead_01.p
 # warmstart_path = f'/netdisk/dx6/saved_models/bso_beta_5_e150_bragg.pt'
 
 load_pretrained_model = False
-pretrain_path = f'/netdisk/dx6/saved_models/wo3_p4nmm_parent_e25_manualscaling.pt'
+pretrain_path = f'/netdisk/dx6/saved_models/wo3_1085K_e150_multiheadattention_01.pt'
 
 
-ground_truth_cif = '0032' # wo3_1103K
+ground_truth_cif = '0032' # wo3_1085K   
 # ground_truth_cif = '0093' # wo3_1043K
 # ground_truth_cif = '0001' # wo3_1243K
 # ground_truth_cif = '0009' # pzt_90
@@ -165,14 +170,17 @@ train_loader = DataLoader(train_data, batch_size=training_batchsize, shuffle=Tru
 test_loader = DataLoader(test_data, batch_size=training_batchsize, shuffle=False)
 
 
-#============================================================================================
+#^============================================================================================
 #* Initialize CNN model: Pretrained, Warm Start, or New Model
-#============================================================================================   
+#^============================================================================================   
 
-model = xsym.CNNWithAttention(num_classes=number_of_classes)
-# model = xsym.CNN_MultiHeadAttention(num_classes=number_of_classes)
+# model = xsym.CNN_bragg(num_classes=number_of_classes)
+# model = xsym.CNN_GlobalSelfAttention(num_classes=number_of_classes)
+# model = xsym.CNN_LocalAttention(num_classes=number_of_classes)
+model = xsym.CNN_MultiHeadAttention(num_classes=number_of_classes)
+# model = xsym.CNN_bragg(num_classes=number_of_classes)
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.00001)
 scheduler = MultiStepLR(optimizer, milestones=scheduler_milestones, gamma=0.1)
 
 # Use multiple GPUs if available
@@ -181,7 +189,7 @@ if torch.cuda.device_count() > 1:
     model.to(device)  
     dummy_input = torch.randn(1, X_train.shape[1]).to(device)  # Initialize Lazy Layers
     model(dummy_input)  
-    model = nn.DataParallel(model, device_ids=selected_gpus)
+    model = nn.DataParallel(model, device_ids=logical_gpus)
 
 model = model.to(device)
 criterion = criterion.to(device)
@@ -209,47 +217,33 @@ if warmstart_model:
     checkpoint = torch.load(warmstart_path, map_location=device)
     model.load_state_dict(checkpoint, strict=False)
 
-# if torch.cuda.device_count() > 1:
-#     # run a dummy forward pass to initialize model and lazy linear layers
-#     print("Let's use", torch.cuda.device_count(), "GPUs!")
-#     dummy_input = torch.randn(training_batchsize, X_train.shape[1])  # Adjust shape as needed
-#     model(dummy_input)
-#     model = nn.DataParallel(model, device_ids=selected_gpus)
 
-# model = model.to(device)
+# def objective(trial):
+#     # Suggest hyperparameters
+#     filter_size = trial.suggest_int("filter_size", 15, 51, step=2)  # e.g., odd numbers between 3 and 15
+#     stride = trial.suggest_int("stride", 1, 5)
     
-# criterion = criterion.to(device)
+#     model = xsym.CNN_MultiHeadAttention(num_classes = number_of_classes, filter_size=filter_size, stride=stride, num_classes=10).to("cuda")
+#     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+#     criterion = nn.CrossEntropyLoss()
 
-
-# #* Load Pretrain Model
-# if load_pretrained_model == True:
-
-#     checkpoint = torch.load(pretrain_path) 
-#     old_keys = list(checkpoint['model_state_dict'].keys())
-#     new_keys = []
-
-#     if 'module' in old_keys[0] and torch.cuda.device_count()<2:
-#         for i in range(len(old_keys)):
-#             new_keys.append(old_keys[i].replace('module.',''))
-#             checkpoint['model_state_dict'][new_keys[i]] = checkpoint['model_state_dict'].pop(old_keys[i])
-
-#     model.load_state_dict(checkpoint['model_state_dict'])
-#     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-#     # for state in optimizer.state.values():
-#     #     for k, v in state.items():
-#     #         if torch.is_tensor(v):
-#     #             state[k] = v.to(device)
-#     #^ if torch.cuda.device_count() > 1:
-#     #^     model = model.to(f'cuda:{selected_gpus[0]}')
-#     #^ else:
-#     #^     model = model.to(device)
-#     #^ criterion = criterion.to(device)
-
-
-# #* Warmstart Model
-# if warmstart_model == True: 
-#     model.load_state_dict(torch.load(warmstart_path, weights_only=True), strict=False)
-
+#     for epoch in range(epochs):
+#         model.train()
+#         count = 0
+#         running_loss = 0.0
+#         for inputs, labels in train_loader:
+#             count = count+1
+#             inputs, labels = inputs.to(device), labels.to(device)
+#             optimizer.zero_grad(set_to_none=True)
+#             inputs = inputs.to(device)
+#             outputs = model(inputs)
+#             loss = criterion(outputs, labels)
+#             loss.backward()
+#             optimizer.step()
+#             running_loss += loss.item()
+#         scheduler.step()
+#         if epoch % 10 ==0:
+#             print("Epoch {} loss: {}".format(epoch + 1, running_loss / len(train_loader)))
 
 
 #============================================================================================
@@ -258,11 +252,10 @@ if warmstart_model:
 
 if train_model == True:
     #^ Training loop
+    model.train()
     for epoch in range(epochs):
-        count = 0
         running_loss = 0.0
         for inputs, labels in train_loader:
-            count = count+1
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad(set_to_none=True)
             inputs = inputs.to(device)
@@ -272,9 +265,9 @@ if train_model == True:
             optimizer.step()
             running_loss += loss.item()
         scheduler.step()
-
+        # if epoch % 10 ==0:
+        #     print("Epoch {} loss: {}".format(epoch + 1, running_loss / len(train_loader)))
         print("Epoch {} loss: {}".format(epoch + 1, running_loss / len(train_loader)))
-
 
     #^ Validation on test data loop
     number_of_top_results = min(10, number_of_classes)
@@ -380,7 +373,7 @@ if classify_experiment == True:
     confidence_results['saved_model']=path_to_save_model
     confidence_results['validation_accuracy']=correct_list
     confidence_results['runtime']=runtime
-    confidence_results['num_gpus']=len(selected_gpus)
+    confidence_results['num_gpus']=len(logical_gpus)
 
 
 

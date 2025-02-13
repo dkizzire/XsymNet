@@ -32,7 +32,7 @@ def main():
     #* ------------------------------------------------------------------------------------------------------
     NUM_THREADS = 5                                 #^ default = 5; number of threads to launch to optimize scale or create randomstates
     material_name = 'wo3'                           #^ name of your material
-    phase_name = '1085K'                       
+    phase_name = '1085K_0099'                       
     instrument_file = 'wo3.txt'                     #^ located in ./instrument_parameters
     peakshape_file = 'wo3_peak_type.txt'            #^ located in ./instrument_parameters
     number_of_random_states = 250                   #^ = 1 : Rietveld of whole subgroup tree;  = ~250-500 create randomstates for ML training 
@@ -80,7 +80,7 @@ def main():
     #* END OF USER INPUT
     #* ------------------------------------------------------------------------------------------------------
 
-    str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*.str')))
+    str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*0099.str')))
     # str_files = str_files[25:30]
 
     cif_files = sorted(glob.glob(os.path.join(cwd, material_name, f'subgroup_cifs_{material_name}', '*')))
