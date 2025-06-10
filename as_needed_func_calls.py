@@ -83,28 +83,56 @@ beq_dict = {
 #^ Info for all experimental data to find scaling for
 #^ ------------------------------------------------------------------------------------------------------
 
-#^ list of experimental xy files; used to generate better scale values for each subgroup memeber for each experimental data
-experimental_data_filenames = ['d8_03901_t1325.xy', 'd8_03901_t1243.xy', 'd8_03901_t1103.xy', 'd8_03901_t1043.xy']
+# #^ list of experimental xy files; used to generate better scale values for each subgroup memeber for each experimental data
+# experimental_data_filenames = ['d8_03901_t1325.xy', 'd8_03901_t1243.xy', 'd8_03901_t1103.xy', 'd8_03901_t1043.xy']
 
-#^ id associated with each experimental data file above
-phase_names = ['1325K_scale', '1243K_scale', '1103K_scale', '1043K_scale']                      
+# #^ id associated with each experimental data file above
+# phase_names = ['1325K_scale', '1243K_scale', '1103K_scale', '1043K_scale']                      
 
-#^ Pawley P1 refinement output files for each experiment - not sure if i need this 
-p1_filenames = ['pawley_P1_wo3_1325K.out', 'pawley_P1_wo3_1243K.out', 'pawley_P1_wo3_1103K.out', 'pawley_P1_wo3_1043K.out']
-
-
-# experimental_data_paths = [os.path.join(cwd, material_name, x) for x in experimental_data_filenames]
-# xdd_windpaths = [PureWindowsPath(Path(x).absolute()) for x in experimental_data_paths]
-# expt = list(zip(experimental_data_paths, phase_names))
+# #^ Pawley P1 refinement output files for each experiment - not sure if i need this 
+# p1_filenames = ['pawley_P1_wo3_1325K.out', 'pawley_P1_wo3_1243K.out', 'pawley_P1_wo3_1103K.out', 'pawley_P1_wo3_1043K.out']
 
 
-scaleopt = os.path.join(cwd, material_name, 'intensity_test', '*scaleopt_xy.xy')
-scale1 = os.path.join(cwd, material_name, 'intensity_test', '*scale1_xy.xy')
-
-scale_data1 = pd.read_csv(scale1, sep='\s+', header=None)
-
-scale
+# # experimental_data_paths = [os.path.join(cwd, material_name, x) for x in experimental_data_filenames]
+# # xdd_windpaths = [PureWindowsPath(Path(x).absolute()) for x in experimental_data_paths]
+# # expt = list(zip(experimental_data_paths, phase_names))
 
 
-scale1_data_scaled = scale_data1*0.001
+# scaleopt = os.path.join(cwd, material_name, 'intensity_test', '*scaleopt_xy.xy')
+# scale1 = os.path.join(cwd, material_name, 'intensity_test', '*scale1_xy.xy')
 
+# scale_data1 = pd.read_csv(scale1, sep='\s+', header=None)
+
+def convert_bragg_to_tensors(filepath):
+    '''
+    '''
+
+    # read in hkl lists from topas output and sort the hkl lists by ascending d_spacing
+    data = pd.read_csv(filepath, sep='\s+', header = None, names = ['tof','i'])
+    tof = data['tof'].T
+    bragg = data['i'].T
+    x_axis = torch.tensor(tof.values, dtype=torch.float)
+    bragg_tensor = torch.tensor(bragg.values, dtype=torch.float)
+
+
+    return bragg_tensor, x_axis
+
+# scale1_data_scaled = scale_data1*0.001
+
+ml_data_file = os.path.join(cwd, 'bso', 'ml_data', 'alpha_4', 'topas0088_bso_alpha_4_rs.pt')
+
+new = os.path.join(cwd, 'bso', 'experimental_refinement', 'rietveld', 'topas0088_xy.xy')
+
+ml_data = torch.load(ml_data_file)
+
+new_y, _ = convert_bragg_to_tensors(new)
+
+print(ml_data.shape)
+print(new_y.shape)
+
+ml_data[42] = new_y
+
+torch.save(ml_data, ml_data_file)
+
+print(ml_data[42])
+print(new_y)

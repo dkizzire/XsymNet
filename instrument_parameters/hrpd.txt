@@ -1,14 +1,19 @@
-    start_X 35000
-    finish_X 121000
-    local !neutron 1 local !xray 0 
+    start_X 60000
+    finish_X 120000
+    local !neutron 1 
+    local !xray 0 
     neutron_data
-    TOF_x_axis_calibration(!t0_hrpd_bs,-49.37818`,!difc_hrpd_bs, 48255.09936_0.61297, !difa_hrpd_bs,  15.23076`)
+
+    ' TOF_x_axis_calibration(!t0_hrpd_bs,-49.37818,!difc_hrpd_bs, 48255.09936_0.61297, !difa_hrpd_bs,  15.23076)
+    TOF_x_axis_calibration(!t0_hrpd_bs, -22.0105_0.19111746,!difc_hrpd_bs, 48283.52311_1.67763, !difa_hrpd_bs, -14.00371_0.0876098944)  
+    
     local !bank_two_theta 168.567 
     local !mu  0.07076 
     local !fixb  0.0 min -10 max 10 
 
-    bkg  @  1.23166856` -0.0124816464`  0.209502581` -0.119357101` -0.0364802546` -0.0805659581`  0.280382189` -0.180514454`  0.157958349` -0.129704358`  0.215427676`  0.0027121254`
-    
+    ' bkg  1.23166856 -0.0124816464  0.209502581 -0.119357101 -0.0364802546 -0.0805659581  0.280382189 -0.180514454  0.157958349 -0.129704358  0.215427676  0.0027121254
+    bkg   1.54725205 -0.121453919  0.0292363954  0.00372297507  0.021261211 -0.0168486792  0.0230044839 -0.0209552816  0.0564963185  0.0115294212  0.00611104215  0.00473919448 
+
     scale_pks = (Exp(-2*fixb/(2 D_spacing)^2)); 'fixb correction local to each bank
     weighting = If(SigmaYobs < 1e-9, 1, 1/SigmaYobs^2);
     x_calculation_step = Yobs_dx_at(Xo); 
@@ -21,3 +26,5 @@
     #ifdef peak1
         wifd_pkshape(!two_theta, =bank_two_theta;, !aprm, 2.50000, !tauf_2, 9.80744, !tauf_1, 0.43977, !tauf_0, 0.000, !taus_0, 25.27420, !taus_1, 2.66797, !t_eff, 144.41296, !hhh, 3.58595, !hhh_0, 11.61348)
     #endif
+
+    

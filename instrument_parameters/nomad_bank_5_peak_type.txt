@@ -1,0 +1,3 @@
+		NOMAD_bank5_ipf
+		'sample_broadening(, gama0_sample_bank5,, gama1_strain_bank5,, gama2_size_bank5, , sample_lor_bank5 )
+

@@ -9,18 +9,20 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    phase_name = 'wo3'
-    diffraction_type = 'xray'   # choices: neutron or xray
+    phase_name = 'malcolm'
+    diffraction_type = 'neutron'   # choices: neutron or xray
     instrument_file = 'wo3.txt'
     peakshape_file = 'wo3_peak_type.txt'
-    sub_folder_1 = 'trial_experimental_refinement'
-    primitive_base_structure = '0528'
-    use_vc_macro = True
+    sub_folder_1 = 'bank_0'
+    primitive_base_structure = '0118'
+    custom_macros = True
+    macro_file = 'snap_01_macros.txt'
+    use_vc_macro = False
     use_strain_modes = True
     # set convergence criteria
     conv_criteria = 0.0001
 
-    experimental_data_file = f'd8_03901_t1103.xy'
+    experimental_data_file = f'SNAP063403_bank-0.xye'
     experimental_data_path = os.path.join(cwd, phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
@@ -49,21 +51,23 @@ def main():
     # END OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
 
-    cif_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'subgroup_cifs_{phase_name}', f'cif{primitive_base_structure}.txt')))
+    cif_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'subgroup_cifs_{phase_name}', f'*.txt')))
     cif_filenames = [os.path.basename(x) for x in cif_files]
     cif_noext = [os.path.splitext(x)[0] for x in cif_filenames]
     subgroup_nums = [x[3:] for x in cif_noext]
 
-    str_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'topas_strs_{phase_name}', f'topas{primitive_base_structure}.str')))
+    str_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'topas_strs_{phase_name}', f'*.str')))
 
     #! Add try/except assert here to make sure file it globbed correctly 
 
-    refinement_lines = funcs.refinement_options(iters=1000, continue_on_convergence=True)
+    refinement_lines = funcs.refinement_options(iters=1000, continue_on_convergence=False)
     global_lines = funcs.global_parameters()
     xdd_lines = funcs.xdd(xdd_winpath)
     # ----- generate instrument specific lines -----
     instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
     peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    if custom_macros:   
+        macro_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', macro_file))
 
     phase_lines = f'''
     str
@@ -90,7 +94,7 @@ def main():
 
         # generate pawley lattice parameter refinement lines - with or without vc macro
         latparams, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
-        topas_latparam_lines = funcs.generate_pawley_lattice_lines_v2(latparams, spacegroup_origin, use_vc = True)
+        topas_latparam_lines = funcs.generate_pawley_lattice_lines_v2(latparams, spacegroup_origin, use_vc = False)
 
         # generate lines for writing TOPAS output
         if diffraction_type == 'neutron':
@@ -110,8 +114,9 @@ def main():
             f.write(peakshape_lines)
             f.write(topas_latparam_lines)
             f.write(xy_out_lines)
-            f.write(dy_out_lines)
-
+            # f.write(dy_out_lines)
+            if custom_macros:
+                f.write(macro_lines)
 
         
     # write file for batch running topas pawley refinements of subgrouptree

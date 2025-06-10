@@ -1,0 +1,86 @@
+macro Neutron {
+	neutron_data
+
+	x_calculation_step = Yobs_dx_at(Xo);  
+
+	'scale_pks = D_spacing^4 * Sin((Pi/180) * two_theta/2); 
+	scale_pks = D_spacing^4;
+
+	weighting = If(SigmaYobs < 0.001, 0.001, 1/SigmaYobs^2); 
+
+	TOF_LAM(0.001)
+	}
+
+ 
+macro GSAS_PeakType(sig0, sig0v, sig1, sig1v, sig2, sig2v, sigq, sigqv, gam0_Z, gam0_Zv, gam1_X, gam1_Xv, gam2_Y, gam2_Yv )    ' macro using GSAS-style sigmas and gammas for pseudo-Voigt function. Add lines with local parameters to each dataset 
+{ 
+   	#m_argu sig0
+   	#m_argu sig1
+   	#m_argu sig2
+   	#m_argu sigq
+   	#m_argu gam0_Z
+   	#m_argu gam1_X
+   	#m_argu gam2_Y
+      If_Prm_Eqn_Rpt(sig0, sig0v,) 
+      If_Prm_Eqn_Rpt(sig1, sig1v,)
+      If_Prm_Eqn_Rpt(sig2, sig2v,)
+      If_Prm_Eqn_Rpt(sigq, sigqv,)
+      If_Prm_Eqn_Rpt(gam0_Z, gam0_Zv,)
+      If_Prm_Eqn_Rpt(gam1_X, gam1_Xv,)
+      If_Prm_Eqn_Rpt(gam2_Y, gam2_Yv,)
+      
+	gauss_fwhm = Sqrt((sig0 + sig1 * D_spacing^2 + sig2 * D_spacing^4 + sigq * D_spacing)^2);
+	
+	lor_fwhm = Sqrt((gam0_Z + gam1_X * D_spacing + gam2_Y * D_spacing^2)^2); 
+}   
+
+'GSAS back to back function type 3, GSAS manual page 150   
+macro GSAS_btb(alp0, alp0v, alp1, alp1v, alp2, alp2v, bet0, bet0v, bet1, bet1v, betq, betqv)                   
+{ 
+   #m_argu alp0
+   #m_argu alp1
+   #m_argu alp2
+   #m_argu bet0
+   #m_argu bet1
+   #m_argu betq
+   If_Prm_Eqn_Rpt(alp0, alp0v,) 
+   If_Prm_Eqn_Rpt(alp1, alp1v,) 
+   If_Prm_Eqn_Rpt(alp2, alp2v,) 
+   If_Prm_Eqn_Rpt(bet0, bet0v,) 
+   If_Prm_Eqn_Rpt(bet1, bet1v,) 
+   If_Prm_Eqn_Rpt(betq, betqv,) 
+   push_peak                  
+   	exp_conv_const = ( alp0  + alp1 / D_spacing)+ alp2 / D_spacing^4;    'alp0 + alp1 / D_spacing + alp2 / D_spacing^4;
+   bring_2nd_peak_to_top    
+      exp_conv_const = (bet0 + (bet1 / D_spacing^4) + (betq / D_spacing^2)); 'bet0 + bet1 / D_spacing^4;
+   add_pop_1st_2nd_peak  
+} 
+
+macro TOF_x_axis_calibration_GSASII(t0, t0v, difc, difcv, difa, difav, difb, difbv) 
+   { 
+      #m_argu t0      ' this creates a unique parameter names if d0 starts with @ 
+      #m_argu difc 
+      #m_argu difa 
+	   #m_argu difb 
+      If_Prm_Eqn_Rpt(t0, t0v,    
+         min = Val - 15 Yobs_dx_at(.5(X1+X2)); 
+         max = Val + 15 Yobs_dx_at(.5(X1+X2)); 
+         del = .3 Peak_Calculation_Step; ) 
+      If_Prm_Eqn_Rpt(difc, difcv, 
+         min = Val - 15 Yobs_dx_at(.5(X1+X2)); 
+         max = Val + 15 Yobs_dx_at(.5(X1+X2)); 
+         del .01) 
+      If_Prm_Eqn_Rpt(difa, difav, 
+         min = Val - 15 Yobs_dx_at(.5(X1+X2)); 
+         max = Val + 15 Yobs_dx_at(.5(X1+X2)); 
+         del .005) 
+	  If_Prm_Eqn_Rpt(difb, difbv, 
+         min = Val - 15 Yobs_dx_at(.5(X1+X2)); 
+         max = Val + 15 Yobs_dx_at(.5(X1+X2)); 
+         del .01) 
+		  	  
+      pk_xo = CeV(t0,t0v) + CeV(difc,difcv) D_spacing + CeV(difa,difav) D_spacing^2 + CeV(difb,difbv)/D_spacing; 
+      
+      gui_tof_t0 = CeV(t0,t0v); 
+      gui_tof_t1 = CeV(difc,difcv); 
+   } 

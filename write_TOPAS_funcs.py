@@ -337,49 +337,45 @@ def get_str_info(str_path, str_type):
     with open(str_path, 'r') as f:
         lines = f.readlines()
 
+    # extract the spacegroup, origin choice, and Herman-Maugin Spacegroup name    
+    oline = lines[4].strip()
+    sg_name = oline.split(':')[0].strip("'")
+
+    if ':' in oline:
+        origin = int(oline.split(':')[1])
+    else:
+        origin = 1
+    
+    sg = int(lines[5].strip().split()[1])
+
+
+    # grabs the standard lattice parameters
     if str_type == 'regular':
-        oline = lines[4].strip()
-        sg_name = oline.split(':')[0].strip("'")
-
-        if ':' in oline:
-            origin = int(oline.split(':')[1])
-        else:
-            origin = 1
-        
-        sg = int(lines[5].strip().split()[1])
-        alat = float(lines[6].strip().split()[1])
-        blat = float(lines[7].strip().split()[1])
-        clat = float(lines[8].strip().split()[1])
-        alpha = float(lines[9].strip().split()[1])
-        beta = float(lines[10].strip().split()[1])
-        gamma = float(lines[11].strip().split()[1])
-
-
-    if str_type == 'strain':
-        f = iter(lines)
         for i in range(len(lines)):
-            if '\tstr\n' in lines[i]:
-                oline = lines[i+1].strip()
-                sg_name = oline.split(':')[0].strip("'")
-
-                if ':' in oline:
-                    origin = int(oline.split(':')[1])
-                else:
-                    origin = 1
-            
             if 'space_group' in lines[i]:
-                sg = int(lines[i].strip().split()[1])
-            
-            if '\t\t\ta ' in lines[i]:
-                aline = lines[i].strip()
-                if ':' in aline:
-                    alat = float(aline.split(':')[1].strip())
-                    blat = float(lines[i+1].strip().split(':')[1].strip())
-                    clat = float(lines[i+2].strip().split(':')[1].strip())
-                    alpha = float(lines[i+3].strip().split(':')[1].strip())
-                    beta = float(lines[i+4].strip().split(':')[1].strip())
-                    gamma = float(lines[i+5].strip().split(':')[1].strip())
-                    break
+                alat = float(lines[i+1].strip().split()[1])
+                blat = float(lines[i+2].strip().split()[1])
+                clat = float(lines[i+3].strip().split()[1])
+                alpha = float(lines[i+4].strip().split()[1])
+                beta = float(lines[i+5].strip().split()[1])
+                gamma = float(lines[i+6].strip().split()[1])
+                break
+        
+
+    # grabs the strain mode defined lattice parameters
+    elif str_type == 'strain':
+        for i in range(len(lines)):
+            if 'celltransform(' in lines[i]:
+                alat = float(lines[i+2].strip().split(':')[1].strip())
+                blat = float(lines[i+3].strip().split(':')[1].strip())
+                clat = float(lines[i+4].strip().split(':')[1].strip())
+                alpha = float(lines[i+5].strip().split(':')[1].strip())
+                beta = float(lines[i+6].strip().split(':')[1].strip())
+                gamma = float(lines[i+7].strip().split(':')[1].strip())
+                break
+    
+    else:
+        raise ValueError("Invalid str_type. It must be either 'regular' or 'strain'.")
 
     latparams = [alat, blat, clat, alpha, beta, gamma]
     sg_o = [sg, origin, sg_name]
@@ -874,7 +870,7 @@ def generate_pawley_latparam_lines_with_strain_modes(isodistort_str_file, spaceg
     return str_lines, macro_lines
 
 
-def generate_lattice_parameter_lines_with_vc_macro(latparams, spacegroup_origin, vc_lp_matrix):
+def generate_lattice_parameter_lines_with_vc_macro(latparams, spacegroup_origin, vc_lp_matrix=None):
     '''
     Parameters
     ----------
@@ -1151,36 +1147,37 @@ def get_strainmode_latparams_from_topas_out(file):
         in_lines = f.readlines()
         
     print(f'read lattice parameters from : {file}')
-    
-    rwp_index = 0
-    phase_index = 0
-    sg_index = 0
-    for i in range(len(in_lines)):
-        if "r_wp" in in_lines[i]:
-            rwp_index = i
-        if "unitless parent cell strains" in in_lines[i]:
-            phase_index = i
-        if "space_group " in in_lines[i]:
-            sg_index = i
-        if "load hkl_m_d_th2 I" in in_lines[i]:
-            break
-    
-    rwp = float(in_lines[rwp_index].strip().strip('`').split()[-1])
-    phase_line = in_lines[phase_index].strip().replace('"','').split()
-    a = float(in_lines[phase_index+11].strip().strip('`').split()[-1])
-    b = float(in_lines[phase_index+12].strip().strip('`').split()[-1])
-    c = float(in_lines[phase_index+13].strip().strip('`').split()[-1])
-    alpha = float(in_lines[phase_index+14].strip().strip('`').split()[-1])
-    beta = float(in_lines[phase_index+15].strip().strip('`').split()[-1])
-    gamma = float(in_lines[phase_index+16].strip().strip('`').split()[-1])
-    space_group_line = (in_lines[sg_index].strip().split()[-1].strip('"').split(':'))
-    space_group = int(space_group_line[0])
-    origin = int(space_group_line[1])
+    a, b, c, alpha, beta, gamma = 0, 0, 0, 0, 0, 0
+    rwp = 0
+    space_group = 0
+    origin = 0
+    hm_name = ''
+
+    for i in range(len(in_lines)):  
+        if 'r_wp' in in_lines[i]:
+            rwp = float(in_lines[i].strip().split()[1])
+        if 'a  = sa;:' in in_lines[i]:
+            a = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'b  = sb;:' in in_lines[i]:
+            b = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'c  = sc;:' in in_lines[i]:
+            c = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'al = sal;:' in in_lines[i]:
+            alpha = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'be = sbe;:' in in_lines[i]:
+            beta = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'ga = sga;:' in in_lines[i]:
+            gamma = float(in_lines[i].strip().split(':')[1].strip('`'))
+        if 'space_group' in in_lines[i]:
+            space_group_line = in_lines[i].strip().split()[-1]
+            space_group = int(space_group_line.split(':')[0])
+            origin = int(space_group_line.split(':')[1])
+            hm_name = in_lines[i-1].strip().strip("'")
 
     refined_latparams = [ a, b, c, alpha, beta, gamma]
     sg_o = [space_group, origin]
 
-    return refined_latparams, sg_o
+    return refined_latparams, sg_o, rwp, hm_name
 
 
 def get_rwp_from_out(file):
@@ -1244,7 +1241,7 @@ def get_rwp_from_out(file):
     return refined_latparams, space_group, herman, rwp
 
 
-def get_rwp_latparams_from_primitive_refinements(file):
+def get_rwp_from_topas_out(file):
     '''
     Parameters
     ----------
@@ -1252,55 +1249,18 @@ def get_rwp_latparams_from_primitive_refinements(file):
         path to the topas out file
         
     Returns:
-        list of lattice parameters: [a,b,c,alpha,beta,gamma]
-        space_group: int
-        origin: int
         rwp: float (goodness of fit from TOPAS)
-
-    Purpose:
-        This function is used to retrieve lattice parameters refined by topas
-
-    Important Note:
-        In the str or hkl_Is section, you must have the following lines in order: 
-        phase_name
-        a
-        b
-        c
-        al
-        be
-        ga
-        space_group
     '''
     in_lines = []
     with open(file,'r') as f:
         in_lines = f.readlines()
         
-    
-    rwp_index = 0
-    phase_index = 0
-    for i in range(len(in_lines)):
-        if "r_wp" in in_lines[i]:
-            rwp_index = i
-        if "phase_name" in in_lines[i]:
-            phase_index = i
-        if "load hkl_m_d_th2 I" in in_lines[i]:
+    for line in in_lines:
+        if "r_wp" in line:
+            rwp = float(line.strip().split()[1])
             break
-    
-    rwp = float(in_lines[rwp_index].strip().strip('`').split()[-1])
-    phase_line = in_lines[phase_index].strip().replace('"','').split()
-    a = float(in_lines[phase_index+1].strip().split()[2].strip('`'))
-    b = float(in_lines[phase_index+2].strip().split()[2].strip('`'))
-    c = float(in_lines[phase_index+3].strip().split()[2].strip('`'))
-    alpha = float(in_lines[phase_index+4].strip().split()[2].strip('`'))
-    beta = float(in_lines[phase_index+5].strip().split()[2].strip('`'))
-    gamma = float(in_lines[phase_index+6].strip().split()[2].strip('`'))
-    space_group_line = (in_lines[phase_index+7].strip().split()[-1].strip('"').split(':'))
-    space_group = int(space_group_line[0])
-    origin = int(space_group_line[1])
 
-    refined_latparams = [a, b, c, alpha, beta, gamma]
-
-    return refined_latparams, space_group, origin, rwp
+    return rwp
 
 
 def latparams2vectormatrix(latparams):
@@ -1371,44 +1331,13 @@ def get_basis_transformation_matirx(cif_path):
 
     return basis_cols, origin
 
-# def get_info_from_topas_out(file):
-#     '''
-#     Parameters
-#     ----------
-#     file: str
-#         path to the topas out file
-        
-#     Returns:
-#         Rwp, scale, 
-#     '''
-#     in_lines = []
-#     with open(file,'r') as f:
-#         in_lines = f.readlines()
-        
-#     print(f'read info from : {file}')
-    
-#     rwp_index = 0
-#     phase_index = 0
-#     for i in range(len(in_lines)):
-#         if "r_wp" in in_lines[i]:
-#             rwp_index = i
-#         if "phase_name" in in_lines[i]:
-#             phase_index = i
-#         if "load hkl_m_d_th2 I" in in_lines[i]:
-#             break
-    
-
-
-#     return refined_latparams
-
 
 
 # ------ perturb latparms ------
 
-def perturb_latparams(latparams, spacegroup_origin, ran_array_lat, ran_array_angle):
+def perturb_latparams(latparams, spacegroup, ran_array_lat, ran_array_angle):
     # takes three random numbers between 0.999 & 1.001 to multiply lattice parameters a, b, c 
     # produces a small purturbation of the lattice parameters
-    spacegroup = spacegroup_origin[0]
 
     triclinic_range = np.arange(1,3).tolist()
     monoclinic_range = np.arange(3,16).tolist()
@@ -1422,60 +1351,60 @@ def perturb_latparams(latparams, spacegroup_origin, ran_array_lat, ran_array_ang
     cubic_range = np.arange(195,231).tolist()
     
     if spacegroup in triclinic_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = latparams[1]+ran_array_lat[1]
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]+ran_array_angle[0]
-        perturbed_beta =  latparams[4]+ran_array_angle[1]
-        perturbed_gamma = latparams[5]+ran_array_angle[2]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b blat {latparams[1]+ran_array_lat[1]}\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al alph {latparams[3]+ran_array_angle[0]}\n'
+        perturbed_beta =  f'\t\t be bet {latparams[4]+ran_array_angle[1]}\n'
+        perturbed_gamma = f'\t\t ga gam {latparams[5]+ran_array_angle[2]}\n'
 
     if spacegroup in monoclinic_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = latparams[1]+ran_array_lat[1]
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]+ran_array_angle[1]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b blat {latparams[1]+ran_array_lat[1]}\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta = f'\t\t be bet {latparams[4]+ran_array_angle[1]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     if spacegroup in orthorhombic_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = latparams[1]+ran_array_lat[1]
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b blat {latparams[1]+ran_array_lat[1]}\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta =  f'\t\t be {latparams[4]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     if spacegroup in tetragonal_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = perturbed_a
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b = Get(a);: 0\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta =  f'\t\t be {latparams[4]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     if spacegroup in trigonal_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = perturbed_a
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b = Get(a);: 0\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta =  f'\t\t be {latparams[4]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     if spacegroup in hexagonal_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = perturbed_a
-        perturbed_c = latparams[2]+ran_array_lat[2]
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b = Get(a);: 0\n'
+        perturbed_c = f'\t\t c clat {latparams[2]+ran_array_lat[2]}\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta =  f'\t\t be {latparams[4]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     if spacegroup in cubic_range:
-        perturbed_a = latparams[0]+ran_array_lat[0]
-        perturbed_b = perturbed_a
-        perturbed_c = perturbed_a
-        perturbed_alpha = latparams[3]
-        perturbed_beta = latparams[4]
-        perturbed_gamma = latparams[5]
+        perturbed_a = f'\t\t a alat {latparams[0]+ran_array_lat[0]}\n'
+        perturbed_b = f'\t\t b = Get(a);: 0\n'
+        perturbed_c = f'\t\t c = Get(a);: 0\n'
+        perturbed_alpha = f'\t\t al {latparams[3]}\n'
+        perturbed_beta =  f'\t\t be {latparams[4]}\n'
+        perturbed_gamma = f'\t\t ga {latparams[5]}\n'
 
     perturbed_params = [perturbed_a, perturbed_b, perturbed_c, perturbed_alpha, perturbed_beta, perturbed_gamma]
     return perturbed_params
@@ -2202,7 +2131,7 @@ def parse_topas_str(file_lines, end_string, i):
 
 
 
-def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_file, spacegroup_origin, random_strain, custom_latparams = None, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_ma_macro=False):
+def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, use_strain_modes = True, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_ma_macro=False):
     '''
     Parameters
     ----------
@@ -2212,8 +2141,9 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
         the spacegroup and origin choice for the structure
     random_strain: np array 
         shape=[6], samples of np.random.uniform between min and max values for strain modes 
-    custom_latparams: list of floats
-        [a,b,c,alpha,beta,gamma] : use if wanting to supply custom lattice parameters other than what is found in the isodistort str file
+    use_strain_modes: bool
+        if True: uses strain modes for lattice parameters
+        if False: uses standard lattice parameter defining
     refine_beq: bool
         if True: 'beq' in mode_dependent_sites section will change to 'beq bval_{atom_type}'
         if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
@@ -2262,6 +2192,10 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
     difference_restrainsts = []
     strain_macros = []
 
+    # if not using strainmodes, get latparams from str file and perturb them
+    if not use_strain_modes:
+        latparams, _ = get_str_info(isodistort_str_file, str_type='strain')
+        latparam_lines = perturb_latparams(latparams, spacegroup_origin[0], ran_array_lat=random_strain[:3], ran_array_angle=random_strain[3:])
     # ----------------------------------------------------------------------------------------
     #* parse topas str file into sections
     # ----------------------------------------------------------------------------------------
@@ -2318,11 +2252,12 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
     # ----------------------------------------------------------------------------------------
 
 
-        # section for using strain modes instead of classic latparams method 
-        for i in range(len(str_strain)):
-            if 'space_group' in str_strain[i]:
-                str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
+    # section for using strain modes instead of classic latparams method 
+    for i in range(len(str_strain)):
+        if 'space_group' in str_strain[i]:
+            str_strain[i] = f'\t\tspace_group {spacegroup_origin[0]}:{spacegroup_origin[1]}\n'
 
+        if use_strain_modes:
             if '#ifdef refine_strain_modes' in str_strain[i]:
                 random_count = 0
                 for j in range(i+1, len(str_strain)):
@@ -2332,7 +2267,7 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
                     split = str_strain[j].split()
                     # new_strain = float(split[2]) + random_strain[random_count]
                     new_strain = random_strain[random_count]
-                    #! comment out .strip('!') in following line if not doing refinement
+
                     strain_refine_line = split[1]
                     if refine_strain == True:
                         strain_refine_line = split[1].strip('!')
@@ -2340,7 +2275,16 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
                     random_count += 1
                     str_strain[j] = newline
                 break
-            
+        
+        if not use_strain_modes:
+            # comment out the #define refine_strain_modes line to use the traditional lattice lines
+            if '#define' in str_strain[i]:
+                str_strain[i] = f"'{str_strain[i]}"
+            # add random perturbations to the lattice parameters. 
+            if '#else' in str_strain[i]:
+                for j in range(len(latparam_lines)):
+                    str_strain[i+1+j] = latparam_lines[j]
+                break    
 
 
     # ----------------------------------------------------------------------------------------
@@ -2355,7 +2299,7 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
         mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
 
         # generate random intial values for mode amplitudes
-        rand_values = np.random.normal(0, .33, len(mode_definitions_df))
+        rand_values = np.random.normal(0, .15, len(mode_definitions_df))
         mode_definitions_df[2] = rand_values
 
         # augment each line of mode amplitudes to include vc macro
@@ -2419,10 +2363,12 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
 
 
         mode_dependent_sites_lines[i][17] = beq_var_name
-
+        
         # apply beq value from beq_value_dict
-        mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
-    
+        if beq_dict != None:
+            mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
+        else:
+            mode_dependent_sites_lines[i][18] = '0.0'
 
     # join list of strings back together
     mode_dependent_sites_lines = [' '.join(mode_dependent_sites_lines[i]) for i in range(len(mode_dependent_sites_lines))]
@@ -2433,7 +2379,9 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_v2(isodistort_str_fil
     # ----------------------------------------------------------------------------------------
 
     all_mode_lines = []
-    # append strain mode and str (structure definition) lines 
+
+
+    # append strain mode (or traditional latparam) and str (structure definition) lines 
     for i in range(len(str_strain)):
         all_mode_lines.append(str_strain[i])
     all_mode_lines.append('\n')
@@ -2796,7 +2744,10 @@ def generate_strain_and_symmetry_mode_lines_from_topas_str_multiphase(isodistort
         mode_dependent_sites_lines[i][17] = beq_var_name
 
         # apply beq value from beq_value_dict
-        mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
+        if beq_dict != None:
+            mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
+        else:
+            mode_dependent_sites_lines[i][18] = '0.0'
     
 
     # join list of strings back together

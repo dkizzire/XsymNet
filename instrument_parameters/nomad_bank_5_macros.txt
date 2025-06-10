@@ -1,0 +1,163 @@
+macro NeutronDiffraction_NOMAD
+{  TOF_LAM(0.001)
+	neutron_data
+	x_calculation_step = Yobs_dx_at(Xo);
+	scale_pks = D_spacing^4;        ' Lorentz factor 
+	weighting = 1 / SigmaYobs^2;
+	Abs_Lobanov           ' Lobanov tpye absorption correction 
+	moderator_line_shape  ' moderator line profile, see macro for details
+'	weighting = If(SigmaYobs < 0.0001, 0.001, 1/SigmaYobs^2);     'trouble from very weak diffraction data points
+}
+
+
+'----------------------------------------------------------------### moderator line profile, IKeda-Carpenter-David function, credit WIF David. Jue Liu modified the code to fit single pulse of SNS. Alan Coelho corrected for the ratio of the first peak to the second peak ###  
+prm !tspow   1.49769_0.18491 min 1.0 max 5.5 
+prm !alph0   2.65771_0.19768 min 0.0001
+prm !alph1   1.46974_0.13594 min 0.0001
+prm !beta0   0.02189_0.00055 min 0.0001
+prm !beta1   0.03262_0.00353 min 0.0001
+prm !k_eff   134.70229_4.72298 min 0.0001
+prm !hk      0.05087_0.00231 min 0.0001
+'-----------------------------------------------------------------
+
+macro moderator_line_shape {
+   local !lam = 2 D_spacing Sin(0.00872664626 two_theta);
+ 	user_defined_convolution = X^tspow Exp(-X / (alph0 + alph1 lam ));      ' slowdown neutron 1/E
+     min 0 max = 10 (alph0 + alph1 lam );
+ 
+	local !Rstorage = Exp(-950/(k_eff lam^2)) hk;	                     ' storage neutron, maxvillian distribution   		
+        push_peak  
+                scale_top_peak = (1-Rstorage); 
+        bring_2nd_peak_to_top 
+                exp_conv_const = -Ln(0.001) / (beta0 + beta1 / lam^2); 
+                scale_top_peak = Rstorage Yobs_dx_at(Xo);               ' please note that the first peak to the second peak won’t be exatactly(1-storage)/storage in the original code, see Alan's comments in TOPAS 7 technical reference. 
+        add_pop_1st_2nd_peak 
+ }
+
+macro Abs_Lobanov          'Lobanov absorption macro with calculated lambda for wavelength dependence of mu (as per GSAS manual), from Pam Whitfield
+{
+local !Lf = Lpath;      '  flightpath
+prm   !h_bar 6.626176e-34 ' Plank's constant
+prm   !m_n 1.67495e-27 ' neutron mass
+local !td_const = 10^4 h_bar/(m_n Lf);
+local !sintheta = Sin(Deg_on_2 two_theta);
+local !lambda = Xo 10^4 h_bar/(m_n Lf);
+local !k0 = 1.697653;
+local !k1 = (25.99978 - (0.01911 sintheta^0.5)Exp(-0.024514 sintheta^2)) + 0.109561 sintheta - 26.0456;:  0.01578
+local !k2 = -0.02489 - (0.39499 sintheta^2) + (1.219077 sintheta^3) - (1.31268 sintheta^4) + (0.871081 sintheta^5) 
+           - (0.2327 sintheta^6);:0.00535
+local !k3 = 0.003045 + (0.018167 sintheta^2) - (0.03305 sintheta^4);:0.00387
+local !k4 = 1.433902 + (11.07504 sintheta^2) - (8.77629 sintheta^4) + (10.02088 sintheta^6) - (3.36778 sintheta^8);:5.81947
+local !k5 = ((0.013869 - 0.01249 sintheta^2)Exp(3.27094 sintheta^2)) + ((0.337894 + (13.77317 sintheta^2))/((1 + 11.53544 sintheta^2)^1.555039));:0.40847
+local !k6 = (1.933433 / (1 + 23.12967 sintheta^2)^1.686715) - 0.13576 sintheta + 1.163198;:1.09426
+local !k7 = 0.044365 - (0.04259/((1 + 0.41051 sintheta^2)^148.4202));:0.04436
+scale_pks = If( (mu*lambda) < 3, Exp(-k0 (mu*lambda) - k1 (mu*lambda)^2 - k2 (mu*lambda)^3 - k3 (mu*lambda)^4),
+				Exp((k4 - k7/(1 + k5 ((mu*lambda)-3))^k6)+k7)
+				);				
+}
+macro TOF_x_axis_calibration_front_scattering_banks(t0, t0v,t0_long, t0_longv, t1, t1v, t2, t2v, t3,t3v)   ' divide pattern in two parts becauase of the wavelength dependent position correction, applies to banks 1, 3 and 4
+   {
+      #m_argu t0
+	  #m_argu t0_long
+      #m_argu t1
+      #m_argu t2
+	  #m_argu t3
+      If_Prm_Eqn_Rpt(t0, t0v,
+         min = Val - 15 Yobs_dx_at(.5(X1+X2));
+         max = Val + 15 Yobs_dx_at(.5(X1+X2));
+         del = .3 Peak_Calculation_Step; )
+		 
+		 If_Prm_Eqn_Rpt(t0_long, t0_longv,
+         min = Val - 15 Yobs_dx_at(.5(X1+X2));
+         max = Val + 15 Yobs_dx_at(.5(X1+X2));
+         del = .3 Peak_Calculation_Step; )
+      If_Prm_Eqn_Rpt(t1, t1v,
+         min = Val - 15 Yobs_dx_at(.5(X1+X2));
+         max = Val + 15 Yobs_dx_at(.5(X1+X2));
+         del .01)
+      If_Prm_Eqn_Rpt(t2, t2v,
+         min = Val - 15 Yobs_dx_at(.5(X1+X2));
+         max = Val + 15 Yobs_dx_at(.5(X1+X2));
+         del .005)
+		If_Prm_Eqn_Rpt(t3, t3v,
+         min = Val - 15 Yobs_dx_at(.5(X1+X2));
+         max = Val + 15 Yobs_dx_at(.5(X1+X2));
+         del .005) 
+		pk_xo = If(D_spacing < local_cut, CeV(t0,t0v) + CeV(t1,t1v) D_spacing + CeV(t2,t2v) D_spacing^2, CeV(t0_long, t0_longv) + CeV(t1,t1v) D_spacing + CeV(t3,t3v) D_spacing^2) ;
+      'pk_xo = If(D_spacing < local_cut, CeV(t0,t0v) + CeV(t1,t1v) D_spacing + CeV(t2,t2v) D_spacing^2,CeV(t0,t0v)  + CeV(t1,t1v) D_spacing + CeV(t2,t2v)  D_spacing^2 + CeV(t3,t3v)/D_spacing) ;
+	  gui_tof_t0 = CeV(t0,t0v);
+      gui_tof_t1 = CeV(t1,t1v);
+   }
+   
+'----------------------------------------------------------------- ###instrument broadening profile, pseudo-voigt function, lor represents the ratio of Lorentzian component
+prm  !sigma0_bank1  0.00000_49.00679           min 0           max 5000
+prm  !sigma1_bank1  1649.28464_42.72263        min 0        max 5000
+prm  !sigma2_bank1  226.43296_6.02421          min 0          max 5000
+prm  !sigma1_long_bank1  4365.98958_208.79607   min 0   max 5000
+prm  !sigma2_long_bank1  0.00000_11.67342       min 0       max 5000
+prm  !sigma1e_bank1 0 
+prm  !sigma2e_bank1 0
+prm  !phitheta_bank1 90
+prm  !sigma0_bank2  0.00000_27.08017            min 0      max 5000
+prm  !sigma1_bank2  4087.50091_23.45953         min 0   max 5000
+prm  !sigma2_bank2  93.26829_2.81969            min 0      max 5000
+prm  !sigma1e_bank2 0 
+prm  !sigma2e_bank2 0
+prm  !phitheta_bank2 90
+prm  !sigma0_bank3  0.00000_28.19942         min 0   max 5000
+prm  !sigma1_bank3  4659.03943_46.57378         min 0   max 5000
+prm  !sigma2_bank3  0.00000_12.64668          min 0   max 5000
+prm  !sigma1_long_bank3  2005.87561_57.00848   min 0   max 5000
+prm  !sigma2_long_bank3  614.23562_10.56175     min 0       max 5000
+prm  !sigma1e_bank3 0 
+prm  !sigma2e_bank3 0
+prm  !phitheta_bank3 90
+prm  !sigma0_bank4  291.49269_16.87396          min 0   max 5000
+prm  !sigma1_bank4  977.66058_10.75987         min 0     max 5000
+prm  !sigma2_bank4  416.92557_5.72773          min 0   max 5000
+prm  !sigma1_long_bank4  227.82377_1172.28011  min 0   max 5000
+prm  !sigma2_long_bank4  1088.93571_368.57224   min 0       max 5000
+
+prm  !sigma1e_bank4 -0.27919_22.81205
+prm  !sigma2e_bank4  0.03840_12.14342
+prm  !phitheta_bank4  90.29245_64.58642
+prm  !sigma0_bank5  0.00000_7.29898           min 0   max 5000
+prm  !sigma1_bank5  256.42553_31.75428          min 0   max 5000
+prm  !sigma2_bank5  97.62558_8.71566          min 0   max 5000
+prm  !sigma1e_bank5 0 
+prm  !sigma2e_bank5 0
+prm  !phitheta_bank5 90
+prm !lor_bank1   0.04255_0.01447     min 0 max 1
+prm !lor_bank2   0.08725_0.00530      min 0 max 1
+prm !lor_bank3   0.40154_0.00383      min 0 max 1
+prm !lor_bank4   0.50559_0.00544     min 0 max 1
+prm !lor_bank5   0.42501_0.01270     min 0 max 1
+
+macro NOMAD_bank5_ipf{
+	peak_type pv
+	pv_fwhm = Sqrt(sigma0_bank5 + sigma1_bank5 D_spacing^2  + sigma2_bank5 D_spacing^4 + (sigma1e_bank5 D_spacing^2 + sigma2e_bank5 D_spacing^4)(Cos(phitheta_bank5))^2); 
+	pv_lor =lor_bank5;:   0.49903072_0.0287193883 
+	}	
+
+macro sample_broadening(gama0_sample,gama0_sample_v,gama1_strain,gama1_strain_v,gama2_size,gama2_size_v, sample_lor, sample_lor_v) 
+{
+    #m_argu gama0_sample
+	#m_argu gama1_strain
+    #m_argu gama2_size
+	If_Prm_Eqn_Rpt(gama0_sample, gama0_sample_v,
+         min = 0;
+         max = 200;) 
+	 If_Prm_Eqn_Rpt(gama1_strain, gama1_strain_v,
+         min = 0;
+         max = 200;) 
+	   If_Prm_Eqn_Rpt(gama2_size, gama2_size_v,
+         min = 0;
+         max = 200;) 
+   If_Prm_Eqn_Rpt(sample_lor, sample_lor_v,
+         min = 0.001;
+         max = 1;) 
+		 
+    pv_fwhm = CeV(gama0_sample, gama0_sample_v) + CeV(gama1_strain,gama1_strain_v) D_spacing + CeV(gama2_size,gama2_size_v) D_spacing^2 ;
+    pv_lor = CeV(sample_lor,sample_lor_v); 
+}
+

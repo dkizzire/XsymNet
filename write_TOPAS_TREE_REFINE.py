@@ -10,16 +10,18 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    phase_name = 'wo3'
-    instrument_file = 'wo3.txt'
-    peakshape_file = 'wo3_peak_type.txt'
+    phase_name = 'malcolm'
+    instrument_file = 'snap_bank-1.txt'
+    peakshape_file = 'snap_bank-0_peak_type.txt'
     refinement_type = 'rietveld' #choices: rietveld or pawley
-    sub_folder_1 = f'SGT_{refinement_type}'
+    sub_folder_1 = f'SGT_{refinement_type}_1'
     topas_version = 'TOPAS6'
     use_strain_modes = True
-    diffraction_type = 'xray'   # choices: neutron or xray
-    
-    experimental_data_file = f'd8_03901_t1103.xy'
+    diffraction_type = 'neutron'   # choices: neutron or xray
+    use_custom_macros = True
+    macro_file = 'snap_macros.txt'
+
+    experimental_data_file = f'SNAP063403_bank-1.xye'
     experimental_data_path = os.path.join(cwd, phase_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
@@ -31,6 +33,9 @@ def main():
     # ----- generate instrument specific lines -----
     instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
     peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    if use_custom_macros:
+        macro_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', macro_file))
+        
 
     # paths to all cif and topas_str files
     cif_files = sorted(glob.glob(os.path.join(cwd, phase_name, f'subgroup_cifs_{phase_name}', '*')))
@@ -60,7 +65,7 @@ def main():
     input_winpath_list = []
     batch_count = 0
     count = 0
-    data  = {}
+    input_dict  = {}
     
     if refinement_type == 'pawley':
         phase_lines = f'''
@@ -75,15 +80,17 @@ def main():
     else:
         print('Value Error: refinement_type should be either pawley or rietveld\n')
 
-    data['refinement_lines'] = refinement_lines
-    data['global_lines'] = global_lines
-    data['xdd_lines'] = xdd_lines
-    data['instrument_lines'] = instrument_lines
-    data['peakshape_ilnes'] = peakshape_lines
-    data['phase_lines'] = phase_lines
+    input_dict['refinement_lines'] = refinement_lines
+    input_dict['global_lines'] = global_lines
+    input_dict['xdd_lines'] = xdd_lines
+    input_dict['instrument_lines'] = instrument_lines
+    input_dict['peakshape_lines'] = peakshape_lines
+    input_dict['phase_lines'] = phase_lines
+    if use_custom_macros:
+        input_dict['macro_lines'] = macro_lines
 
     for i in range(len(cif_files)):
-        print(f'Writing pawley refinement for {cif_noext[i]}') 
+        print(f'Writing TOPAS input file for {cif_noext[i]}') 
         count += 1
         # input file to write
         topas_input_path = os.path.join(cwd, phase_name, sub_folder_1)
@@ -110,16 +117,28 @@ def main():
             # get lattice information from strs_files, use info to generate lines for hkl_Is section of topas input file
             latparams, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
             if use_strain_modes == True:
-                lattice_lines, macro_lines = funcs.generate_pawley_latparam_lines_with_strain_modes(str_files[i], spacegroup_origin, peakshape_lines)
+                mode_lines, macro_lines = funcs.generate_pawley_latparam_lines_with_strain_modes(str_files[i], spacegroup_origin, peakshape_lines)
             else:
-                lattice_lines = funcs.generate_pawley_lattice_lines_v2(latparams, spacegroup_origin)
+                mode_lines = funcs.generate_pawley_lattice_lines_v2(latparams, spacegroup_origin)
                 macro_lines = []
+            
+            mode_lines.insert(4, f'{input_dict["peakshape_lines"]}\n')
+            mode_lines.insert(0, f'\t\tr_bragg 0.0\n')
+            mode_lines.insert(0, f'\t\tscale @ 1.0\n')
+            mode_lines.insert(0, f'hkl_Is\n')
+
+
             
 
         elif refinement_type == 'rietveld':
             latparams, spacegroup_origin = funcs.get_str_info(str_files[i], 'strain')
             random_strain = np.random.uniform(low=-0.001, high=0.001, size=(6))
-            lattice_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str_v2(str_files[i], spacegroup_origin, random_strain)
+            # lattice_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str_v2(str_files[i], spacegroup_origin, random_strain)
+            mode_lines = funcs.generate_mode_lines(str_files[i], spacegroup_origin, random_strain, use_strain_modes = True, refine_beq = False, beq_dict = None, refine_strain = True, refine_distortion = True, use_vc_ma_macro=False)
+            # insert peakshape, r_bragg, and scale into mode lines
+            mode_lines.insert(4, f'{input_dict["peakshape_lines"]}\n')
+            mode_lines.insert(4, f'\t\tr_bragg 0.0\n')
+            mode_lines.insert(4, f'\t\tscale @ 1.0\n')
 
         else:
             print('Value Error: refinement_type should be either pawley or rietveld\n')
@@ -130,11 +149,13 @@ def main():
             f.write(global_lines)
             f.write(xdd_lines)
             f.write(instrument_lines)
-            f.write(phase_lines)
-            f.write(peakshape_lines)
-            f.write(lattice_lines)
+            for i in range(len(mode_lines)):
+                f.write(mode_lines[i])
             f.write(xy_out_lines)
+            f.write(f'\n\n')
             # f.write(dy_out_lines)
+            if use_custom_macros:
+                f.write(macro_lines)
             
 
         # write file for batch running topas pawley refinements of subgrouptree

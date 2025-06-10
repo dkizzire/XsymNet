@@ -31,35 +31,57 @@ def main():
     #* START OF USER INPUT
     #* ------------------------------------------------------------------------------------------------------
     NUM_THREADS = 5                                 #^ default = 5; number of threads to launch to optimize scale or create randomstates
-    material_name = 'wo3'                           #^ name of your material
-    phase_name = '1085K_0099'                       
-    instrument_file = 'wo3.txt'                     #^ located in ./instrument_parameters
-    peakshape_file = 'wo3_peak_type.txt'            #^ located in ./instrument_parameters
+    material_name = 'fe2o3'                           #^ name of your material
+    phase_name = 'bank_5'                       
+    instrument_file = 'nomad_bank_5.txt'                     #^ located in ./instrument_parameters
+    peakshape_file = 'nomad_bank_5_peak_type.txt'            #^ located in ./instrument_parameters
     number_of_random_states = 250                   #^ = 1 : Rietveld of whole subgroup tree;  = ~250-500 create randomstates for ML training 
     path_to_topas_directory = 'C:\TOPAS6'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
-    diffraction_type = 'xray'                       #^ choices: neutron or xray
-    optimize_scale = True                           #^ Generates better scale values for each subgroup
+    diffraction_type = 'neutron'                       #^ choices: neutron or xray
+    optimize_scale = False                           #^ Generates better scale values for each subgroup
     flag_create_randomstates = True                 #^ True or False
-    use_custom_latparams = False                    #^ If you have a structure with crazy strain
+
     use_strain_modes = True                         #^ only change if you are using custom latparams
-    random_strain_bounds = [-0.001, 0.001]          #^ default -> [-0.002, 0.002]  ::NOTE:: tiny changes here make a BIG difference in lattice parameter
-    random_perturb_bounds = [-0.1, 0.1, -5.0, 5.0]  #^ bounds for perturbing custom latparams [abc_lo(angstrom), abc_hi(angstrom), angle_lo(degrees), angle_hi(degrees)] 
+    random_strain_bounds = [-0.002, 0.002]          #^ default -> [-0.001, 0.001]  ::NOTE:: tiny changes here make a BIG difference in lattice parameter
+
+    #^ Bounds for a,b,c,alpha,beta,gamma random perturbation (used if use_strain_modes == False)
+    use_custom_latparams = False                    #^ If you have a structure with crazy strain
+    if use_custom_latparams:
+        use_strain_modes = False
+    custom_latparam_bounds = [[-0.02, 0.02], [-0.02, 0.02], [-0.02, 0.02], [-1, 1], [-1, 1], [-1, 1]] 
+    
     
     #^ experimental xy file to use for xdd section of TOPAS when creating randomstates
-    experimental_data_file = f'd8_03901_t1085.xy'
+    experimental_data_file = f'nom_208518_100-4.h5.xye'
     experimental_data_path = os.path.join(cwd, material_name, experimental_data_file)
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
-    beq_dict = {
-        'W': [0.0, 1.5],
-        'O': [0.0, 1.5]
-    }
+    #^ custom macros file (appended to bottom of input files)
+    use_custom_macros = True
+    if use_custom_macros:
+        custom_macros_file = 'nomad_bank_5_macros.txt'
+        custom_macros = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', custom_macros_file))
+    else:
+        custom_macros = '\n'
+
+    #^ custom lines to add before xdd section
+    use_pre_xdd = True
+    if use_pre_xdd:
+        pre_xdd_file = 'nomad_bank_5_pre_xdd.txt'
+        pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', pre_xdd_file))
+    else:
+        pre_xdd_lines = '\n'
+
+    # beq_dict = {
+    #     'W': [0.0, 1.5],
+    #     'O': [0.0, 1.5]
+    # }
     
     # beq_dict = {
-    #     'Bi1': [0.0, 1.5],
-    #     'Sn1': [0.0, 1.5],
-    #     'O1': [0.0, 2.5], 
-    #     'O2': [0.0, 2.5]
+    #     'Bi1': [0.0, 1.0],
+    #     'Sn1': [0.0, 1.0],
+    #     'O1': [0.0, 1.0], 
+    #     'O2': [0.0, 1.0]
     # }
     # beq_dict = {
     #     'V': [0.0, 1.0],
@@ -75,12 +97,28 @@ def main():
     #     'O1': [0.5, 3.0]
     # }
 
+    # beq_dict = {
+    #     'Mo1': [0.0, 1.0],
+    #     'O1': [0.0, 1.0],
+    #     'N1': [0.0, 1.0], 
+    #     'O2': [0.0, 1.0],
+    #     'C1': [0.0, 1.0],
+    #     'C3': [0.0, 1.0],
+    #     'H3': [0.0, 1.0],
+    #     'C2': [0.0, 1.0],
+    #     'H2': [0.0, 1.0]
+    # }
+
+    beq_dict = {
+        'Fe': [0.0, 1.0],
+        'O': [0.0, 1.0]
+    }
 
     #* ------------------------------------------------------------------------------------------------------
     #* END OF USER INPUT
     #* ------------------------------------------------------------------------------------------------------
 
-    str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*0099.str')))
+    str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*.str')))
     # str_files = str_files[25:30]
 
     cif_files = sorted(glob.glob(os.path.join(cwd, material_name, f'subgroup_cifs_{material_name}', '*')))
@@ -125,6 +163,8 @@ def main():
     instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
     peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
 
+    
+
     # phase_lines only used if use_strain_modes=False
     phase_lines = f'''
     str
@@ -134,9 +174,12 @@ def main():
     '''
     input_dict = {'refinement_lines':refinement_lines,
                   'global_lines':global_lines,
+                  'pre_xdd_lines':pre_xdd_lines,
                   'xdd_lines':xdd_lines,
+                  'phase_lines':phase_lines,
                   'instrument_lines':instrument_lines,
-                  'peakshape_lines':peakshape_lines}
+                  'peakshape_lines':peakshape_lines,
+                  'custom_macros':custom_macros}
     
     #*----------------------------------------------------------------------------------------------------------------------------
     #* create save locations for scale optimiztion file, saved first random state file, and ml data tensors
@@ -168,61 +211,16 @@ def main():
 
         # grab lattice parameters and spacegroup from str file
         latparams, spacegroup_origin = funcs.get_str_info(str_file, 'strain')
+        #^ line above is actually redundant with the new implementation of generate mode lines in write_TOPAS_funcs
 
-        # create random numbers for augmenting strain values
-        random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(len(random_state), 6))
-        
+        # create random numbers for augmenting strain values or latparam values directly
+        if use_strain_modes:
+            random_strain = np.random.uniform(low=random_strain_bounds[0], high=random_strain_bounds[1], size=(number_of_random_states, 6))
+        if not use_strain_modes:
+            random_strain = np.column_stack([np.round(np.random.uniform(low=low, high=high, size=number_of_random_states), 6) for low, high in custom_latparam_bounds])
+
         # create randomly perturbed TOPAS input files
         topas_input_file_list = []
-
-        #*----------------------------------------------------------------------------------------------------------------------------
-        #* Get optimized scale
-        #*----------------------------------------------------------------------------------------------------------------------------
-
-        # scale_input_file = os.path.join(input_path, f'scale_{str_name}.inp')
-        # scale_output_file = os.path.join(input_path, f'scale_{str_name}.out')
-
-        # mode_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str_v2(str_file, spacegroup_origin, random_strain[0], beq_dict=beq_dict, refine_strain=True, refine_distortion=True)
-        # # insert peakshape, r_bragg, and scale into mode lines
-        # mode_lines.insert(4, f'\t\tphase_name {str_name}\n')
-        # mode_lines.insert(4, f'{input_dict["peakshape_lines"]}\n')
-        # mode_lines.insert(4, f'\t\tr_bragg 0.0\n')
-        # mode_lines.insert(4, f'\t\tscale @ 1.0\n')
-
-        # # write scale optimization input file
-        # with open(scale_input_file, 'w') as f:
-        #     f.write(input_dict['scale_refinement_lines'])
-        #     f.write(input_dict['global_lines'])
-        #     f.write(input_dict['xdd_lines'])
-        #     f.write(input_dict['instrument_lines'])
-        #     for k in range(len(mode_lines)):
-        #         f.write(mode_lines[k])
-
-        # # Convert topas input path to windows so TOPAS can run it (TOPAS is Windows only)
-        # scaling_winpath = PureWindowsPath(Path(scale_input_file).absolute()) 
-
-        # # write a windows batchfile to run all random_states with tc.exe (topas command line)
-        # batchfile_path = os.path.join(input_path, 'scaling.bat')
-        # with open(batchfile_path, 'w') as f:
-        #     f.write(f'cd {path_to_topas_directory} \n')
-        #     f.write(f'tc "{scaling_winpath}" \n')
-        # batchfile_path = PureWindowsPath(Path(batchfile_path).absolute())
-
-        # # Run the batch file and capture output and errors
-        # result = subprocess.run(batchfile_path, shell=False, capture_output=True, text=True)
-
-        # # grab the optimized scale from output file
-        # scale = 1.0
-        # with open(scale_output_file, 'r') as f:
-        #     lines = f.readlines()
-        #     for i in range(len(lines)):
-        #         if 'scale @ ' in lines[i]:
-        #             scale = float(lines[i].strip().split('@')[1].strip().strip('`'))
-        #             break 
-                
-        # print(f'{str_name} scale = {scale}\n')
-        # shutil.copy(scale_input_file, os.path.join(scale_file_destination, os.path.basename(scale_input_file)))
-        # shutil.copy(scale_output_file, os.path.join(scale_file_destination, os.path.basename(scale_output_file)))
 
         #*----------------------------------------------------------------------------------------------------------------------------
         #* Create Random States for training data
@@ -241,8 +239,12 @@ def main():
             if diffraction_type == 'xray':
                 dy_out_lines = f'\nOut_2th_TO_dspacing_Ycalc("{dy_out_file}")\n'
 
-            # create strain and symmetry mode lines from str_file with random values
-            mode_lines = funcs.generate_strain_and_symmetry_mode_lines_from_topas_str_v2(str_file, spacegroup_origin, random_strain[i], beq_dict=beq_dict)
+            if use_strain_modes:
+                # create strain and symmetry mode lines from str_file with random values
+                mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain[i], use_strain_modes=True, beq_dict=beq_dict)
+
+            if not use_strain_modes:
+                mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain[i], use_strain_modes=False, beq_dict=beq_dict)
 
             # insert peakshape, r_bragg, and scale into mode lines
             mode_lines.insert(4, f'\t\tphase_name {str_name}\n')
@@ -250,6 +252,7 @@ def main():
             mode_lines.insert(4, f'\t\tr_bragg 0.0\n')
             mode_lines.insert(4, f'\t\tscale 1.0\n')
 
+            
             # write TOPAS input file for this random state
             with open(topas_input_file, 'w') as f:
 
@@ -257,6 +260,7 @@ def main():
                 f.write(f'\'WARNING WARNING WARNING: Above line suppresses output file, comment out if you want a .out file\n')
                 f.write(input_dict['refinement_lines'])
                 f.write(input_dict['global_lines'])
+                f.write(input_dict['pre_xdd_lines'])
                 f.write(input_dict['xdd_lines'])
                 f.write(input_dict['instrument_lines'])
                 
@@ -267,6 +271,7 @@ def main():
                 for k in range(len(mode_lines)):
                     f.write(mode_lines[k])
                 f.write(xy_out_lines)
+                f.write(input_dict['custom_macros'])
                 
             #*----------------------------------------------------------------------------------------------------------------------------
             #* Save the first random state file created for each subgroup for manual running/debugging
@@ -280,6 +285,7 @@ def main():
                 with open(rs_saved_input_file, 'w') as f:
                     f.write(input_dict['refinement_lines'])
                     f.write(input_dict['global_lines'])
+                    f.write(input_dict['pre_xdd_lines'])
                     f.write(input_dict['xdd_lines'])
                     f.write(input_dict['instrument_lines'])
                     # if use_strain_modes == False:
@@ -288,6 +294,7 @@ def main():
                     for k in range(len(mode_lines)):
                         f.write(mode_lines[k])
                     f.write(saved_xy_out_lines)
+                    f.write(input_dict['custom_macros'])
 
 
         # Convert topas input path to windows so TOPAS can run it (TOPAS is Windows only)

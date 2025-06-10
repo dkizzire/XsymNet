@@ -1,0 +1,46 @@
+		'start_X 4250 
+		finish_X 16721
+		
+	'''{{{ bank2 params	
+		' Neutron
+		TOF_LAM(0.001)
+
+		neutron_data
+
+		x_calculation_step = Yobs_dx_at(Xo);  
+
+		'scale_pks = D_spacing^4 * Sin((Pi/180) * two_theta/2); 
+		scale_pks = D_spacing^4;
+
+		weighting = If(SigmaYobs < 0.001, 0.001, 1/SigmaYobs^2); 
+
+		
+
+		local !t0_bank2 -4.14326 min -20 max 20
+		local !difc_bank2  4280.73349
+		local !difa_bank2  0.04235 min -10 max 10
+		local !difb_bank2  0 min -10 max 10
+		TOF_x_axis_calibration_GSASII(@,=t0_bank2;,@, =difc_bank2;,@,=difa_bank2;,@,=difb_bank2;)
+		'Parameters for GSAS-II peakshape	                              
+		local  !alp0  120.74828 min 0 max 150    
+		local  !alp1  18.53181 min -100 max 100 
+		local  !alp2 -17.33789 min -100 max 100 
+		local  !bet0 -103.70844 min -200 max 0   
+		local  !bet1  19.04902 min -100 max 100 
+		local  !betq   0  min 0 max 150    
+		GSAS_btb(@,=alp0;, @, =alp1;, @, =alp2;,@, =bet0;, @, =bet1;, @, =betq;)
+		local sig0    37.53349`  min 0 max 200
+		local sig1    12.42063`     min 0 max 200
+		local sig2   0.32309`       min -10 max 10
+		local !sigq   0       min -100 max 200
+		local gam0_Z  9.97840`_LIMIT_MIN_-10 min -10 max 10 
+		local gam1_X  4.81498`_LIMIT_MAX_10 min -10 max 10 
+		local gam2_Y -2.03016` min -10 max 10 
+		GSAS_PeakType(@,=sig0;,@,=sig1;,@,=sig2;,@,=sigq;,@, =gam0_Z;,@,=gam1_X;,@,=gam2_Y;)
+	'''}}}	
+			
+		
+		
+
+		bkg  @  0.141137516`  0.0472917029` -0.0169842892`  0.00703526279` -0.00190424659` -0.000537110805` -0.00322453091`  9.55076195e-005` -0.000873428656` -0.00080709892` -0.00296672494`  0.00143009889`
+		

@@ -1,0 +1,54 @@
+'-----------------------------------------------------------------### tof-to-d conversion, tof = t0 + difc*d + difa * d^2 ###
+
+prm !difc1  1435.87496 
+prm !difc2  2852.68393
+prm !difc3  5602.39585
+prm !difc4  9059.77189
+prm !difc5  9901.66457
+
+prm t05_2  -12.93332`
+prm difa1_2 -1.68439`
+prm difa2_2  1.81548`
+prm difa3_2 -1.61342`
+prm difa4_2 -22.62071`
+prm difa5_2 -12.50565`
+
+'--------------------------------strain broadening for Si------------------------------------
+prm  gama0_sample_bank1     0.00000`   min 0   max 2000  ' see GSAS manual for details, it is found that PV function works better than pure Lorentzian function  
+prm  gama1_strain_bank1     35.67604`  min 0   max 2000
+prm  gama2_size_bank1       7.03513`   min 0   max 2000
+prm  sample_lor_bank1        0.16204`  min 0.0001 max 1
+
+prm  gama0_sample_bank2   0.00000` min 0   max 2000
+prm  gama1_strain_bank2   59.25280` min 0   max 2000
+prm  gama2_size_bank2     3.73762` min 0   max 2000
+prm  sample_lor_bank2     0.19847`  min 0 max 2000
+
+
+prm  gama0_sample_bank3   32.84292`         min 0   max 2000
+prm  gama1_strain_bank3   15.23423`         min 0   max 2000
+prm  gama2_size_bank3     19.81294`         min 0   max 2000
+prm  sample_lor_bank3     0.49295` min 0   max 2000
+
+prm  gama0_sample_bank4   24.47728` min 0   max 200
+prm  gama1_strain_bank4   0.00000` min 0   max 200
+prm  gama2_size_bank4     26.78087` min 0   max 200
+prm  sample_lor_bank4     0.60908`  min 0 max 1
+
+prm gama0_sample_bank5   0.02747` min 0     max 200
+prm gama1_strain_bank5   13.30732` min 0    max 200
+prm gama2_size_bank5     5.68740` min 0    max 200
+prm sample_lor_bank5     0.42030`
+	
+prm !cystallite_size = 0.94* difc5/gama2_size_bank5;:  1636.52367` ' use the highest resoluiton bank to extract crystallite size and microstrain information. 
+prm !sample_microstrain = gama1_strain_bank5/difc5;:  0.00134`
+'-------------------------------------------------------------------
+
+macro NOMAD_bank5{
+    start_X 3500.98585
+    ' finish_X 12000
+    finish_X 15260.31692
+    local !Lpath 20.09
+	local !two_theta 154
+	}			
+
