@@ -37,6 +37,7 @@
 import os
 import shutil
 import glob
+import json
 import numpy as np
 import pandas as pd
 import torch
@@ -52,7 +53,7 @@ import time
 from datetime import timedelta
 import subprocess
 
-
+from xsymnet_funcs import save_dict_to_json
 
 
 
@@ -119,20 +120,21 @@ def convert_bragg_to_tensors(filepath):
 
 # scale1_data_scaled = scale_data1*0.001
 
-ml_data_file = os.path.join(cwd, 'bso', 'ml_data', 'alpha_4', 'topas0088_bso_alpha_4_rs.pt')
+# ml_data_file = os.path.join(cwd, 'bso', 'ml_data', 'alpha_4', 'topas0088_bso_alpha_4_rs.pt')
 
-new = os.path.join(cwd, 'bso', 'experimental_refinement', 'rietveld', 'topas0088_xy.xy')
+# new = os.path.join(cwd, 'bso', 'experimental_refinement', 'rietveld', 'topas0088_xy.xy')
 
-ml_data = torch.load(ml_data_file)
+# ml_data = torch.load(ml_data_file)
 
-new_y, _ = convert_bragg_to_tensors(new)
+# new_y, _ = convert_bragg_to_tensors(new)
 
-print(ml_data.shape)
-print(new_y.shape)
+# print(ml_data.shape)
+# print(new_y.shape)
 
-ml_data[42] = new_y
+# ml_data[42] = new_y
 
-torch.save(ml_data, ml_data_file)
+# torch.save(ml_data, ml_data_file)
 
-print(ml_data[42])
-print(new_y)
+# print(ml_data[42])
+# print(new_y)
+

@@ -1,0 +1,15 @@
+macro GSAS_btb 
+{
+    'GSAS back to back function type 3, GSAS manual page 150
+
+    push_peak                 
+        exp_conv_const = alpha0 + alpha1 / D_spacing + alpha2 / D_spacing^4;
+    bring_2nd_peak_to_top   
+        exp_conv_const = beta0 + beta1 / D_spacing^4;
+    add_pop_1st_2nd_peak 
+   
+}
+
+macro vc_strain { val_on_continue = Rand(-0.01, 0.01); }
+
+macro vc_dist { val_on_continue = Rand(-1.0, 1.0); }

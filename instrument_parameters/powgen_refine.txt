@@ -2,13 +2,13 @@
     finish_X 96000
     NeutronDiffraction   ' TOF neutron diffraction data         
     scale_pks = D_spacing^pow;  ' Scale peak intensity as
-    bkg   @  14.048056` -6.61727545`  2.9504521` -0.5453947`  0.965912817` -0.365159705`  0.114676395`  0.0222332242` -0.0315144216` -0.256784311` -0.146714196`  0.142224656` -0.299421417`  0.031692733`  0.147907249`
+    bkg     14.048056` -6.61727545`  2.9504521` -0.5453947`  0.965912817` -0.365159705`  0.114676395`  0.0222332242` -0.0315144216` -0.256784311` -0.146714196`  0.142224656` -0.299421417`  0.031692733`  0.147907249`
 
 
     local    !d0_1    9.32399	    min -20  max 20 
     local    !difc_1  22571.96264   min 22500 max 22650
-    local    difa_1 -0.01750		min -10  max 10	
-    local    difb_1 -5.83330		min -10   max 5 
+    local    !difa_1 -0.01750		min -10  max 10	
+    local    !difb_1 -5.83330		min -10   max 5 
 
     TOF_x_axis_calibration_POWGEN(@,=d0_1;,
                                 @,=difc_1;,
@@ -16,18 +16,21 @@
                                 @,=difb_1;)
 
 
+    
+    local   !sig0 -36.48037 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
+    local   !sig1  44.86277 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
+    local   !sig2 -0.22180 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
+    local   !sig3  1.32642 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
+    local   !gam0 -1.45221 min -20 max 20      'gam0 -11.17295_0.33002 min -20 max 20   
+    local   !gam1  14.40400 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
+    local   !gam2 -1.76409 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
     POWGEN_instrument_2						  '2019B values in below
-    local   sig0 -36.48037 min -100 max 200   'sig0 -42.50381_0.30318 min -100 max 200 
-    local   sig1  44.86277 min -100 max 200   'sig1  47.53093_0.18553 min -100 max 200 
-    local   sig2 -0.22180 min -100 max 200    'sig2 -1.25106_0.02154 min -100 max 200  
-    local   sig3  1.32642 min -100 max 200    'sig3  7.17003_0.11297 min -100 max 200  
-    local   gam0 -1.45221 min -20 max 20      'gam0 -11.17295_0.33002 min -20 max 20   
-    local   gam1  14.40400 min -20 max 20     'gam1  15.25484_0.66956 min -20 max 20   
-    local   gam2 -1.76409 min -100 max 200    'gam2  3.02682_0.30385 min -100 max 200  
-            
+
+
+
+    local   !alpha0  152.73005 min 0 max 250   'alpha0 -95.16910_1.07001 min -150 max 100
+    local   !alpha1 -31.59878 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+    local   !alpha2 -14.38509 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
+    local   !beta0 -62.66207 min -100 max 0    'beta0  73.08348_0.29513 min -100 max 100 
+    local   !beta1  16.38983 min -100 max 100  'beta1 -2.68722_0.05497 min -100 max 100  
     GSAS_btb
-    local   alpha0  152.73005 min 0 max 250   'alpha0 -95.16910_1.07001 min -150 max 100
-    local   alpha1 -31.59878 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
-    local   alpha2 -14.38509 min -100 max 100 'alpha1  41.69600_0.78367 min -100 max 100
-    local   beta0 -62.66207 min -100 max 0    'beta0  73.08348_0.29513 min -100 max 100 
-    local   beta1  16.38983 min -100 max 100  'beta1 -2.68722_0.05497 min -100 max 100  

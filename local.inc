@@ -1577,10 +1577,10 @@ macro Out_CIF_STR_rmcprofile(file, with_id)
    }
 
 
-macro & d_spacing_from_TOF_dayton(& t0, & t1, & t2) {
-' This macro calculates d spacing from TOF'
-	(-t1 + Sqrt(t1^2 - 4 t2 (t0 - X))) / (2 t2)
-}
+' macro & d_spacing_from_TOF_dayton(& t0, & t1, & t2) {
+' ' This macro calculates d spacing from TOF'
+' 	(-t1 + Sqrt(t1^2 - 4 t2 (t0 - X))) / (2 t2)
+' }
 
 macro Out_d_from_tof_bragg_dayton(filename, tzero_val, difc_val, difa_val)
 {

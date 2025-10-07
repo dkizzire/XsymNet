@@ -20,7 +20,7 @@ import xsymnet_funcs as funcs
 import xsymnet_classes as xsym
 
 
-import optuna
+# import optuna
 
 t0 = time.time()
 cwd = os.getcwd()
@@ -30,56 +30,64 @@ cwd = os.getcwd()
 #============================================================================================
 
 # Set available GPUs
-selected_gpus = [0, 1, 3, 4, 5, 6, 7]
-# selected_gpus = [0]
+selected_gpus = [0,1,2,3] 
+
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, selected_gpus))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f'\nUsing device: {device}\n')
 logical_gpus = list(range(len(selected_gpus)))
+print(f'Selected GPU IDs: {selected_gpus}, are mapped to Logical GPU IDs: {logical_gpus}\n')
 
 #^============================================================================================
 #* Input phase
 #^============================================================================================
-material_name = 'fe2o3'
-phase_name = 'bank_5'
+material_name = 'wo3'
+phase_name = '1043K'
 epochs = 150
 training_batchsize = 1024
-confidence_iterations = 100
-scheduler_milestones = [80, 175]
 
-train_model = False
-path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_multiheadattention_01.pt'
-# path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_1103K_multihead_02.pt'
+#* Slice data to region of interest
+data_start_index = 0 #70  #661 #TOF 23750 for NVPF  ...... # 1181 TOF 36000  for PZT_90  ....... TOF 60000 i=5390 for BSO
+data_end_index = -1 #6765 #:6061-110k:# #:6765-118k:# #3841
+
+percent_for_testing = 0.1 # 0.2 for 20% testing, 80% training
+
+train_model = True
+path_to_save_model = f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_e{epochs}_maksim.pt'
 
 #* Classify Experimental Data
 classify_experiment = True
-# experimental_p1_filename = 'bso_alpha_P1_trunc_je_xy.xy'
-experimental_files = sorted(glob.glob(os.path.join(cwd, material_name, 'experimental_p1s', '*.xy')))
+experimental_files = sorted(glob.glob(os.path.join(cwd, material_name, 'experimental_p1s', 'P1_wo3_1043K_xy.xy')))
+assert experimental_files, f"Experimental file(s) not found in {os.path.join(cwd, material_name, 'experimental_p1s')} \n --> Check path and file name. <--"
 experimental_names = [os.path.splitext(os.path.basename(f))[0] for f in experimental_files]
 
 #^ get beta trunc je xy 
 
 #* Warmstart Control
 warmstart_model = False
-warmstart_path = f'/netdisk/dx6/saved_models/bso_alpha_3_e100_multiheadattention_01.pt'
+warmstart_path = f'/netdisk/dx6/saved_models/bso_alpha_5_e150_multiheadattention_14.pt'
 
 #* Load Pretrained Model Control
-load_pretrained_model = True
-pretrain_path = f'/netdisk/dx6/saved_models/fe2o3_bank_5_e150_multiheadattention_01.pt'
+load_pretrained_model = False
+pretrain_path = f'/netdisk/dx6/saved_models/bso_beta_3_e150_no_mha_avgcam.pt'
 
+#* Create CAM Control
 create_cam = False
-ground_truth_cif = '0088' # bso_alpha
+subgroup_cam_target = '0093' # wo3_1043K
+cam_save_name = f'avg_cam_{material_name}_{phase_name}_mha_fs_05.png'
+cam_x_units_label = '2Theta (°)'  # '2Theta (°)' or 'TOF (μs)'
+cam_legend_label = r'WO$_{3} 1043 K$'  # legend label for CAM plot
+# cam_legend_label = r'$\beta$ BiSn$_{2}$O$_{7}$'  # legend label for CAM plot
+# cam_legend_label = r'PbZr$_{0.1}$Ti$_{0.9}$O$_{3}$'  # legend label for CAM plot
+
+
+# ground_truth_cif = '0088' # bso_alpha
 # ground_truth_cif = '0152' # bso_beta
 # ground_truth_cif = '0032' # wo3_1085K   
 # ground_truth_cif = '0093' # wo3_1043K
 # ground_truth_cif = '0001' # wo3_1243K
 # ground_truth_cif = '0009' # pzt_90
 
-
-# # #^ scaling json
-# scale_dict_path = os.path.join(cwd, material_name, 'ml_data', '1243K_scale_bkgsub', '1243K_scale_bkgsub_scale_dict.json')
-# # scale_dict_path = os.path.join(cwd, material_name, 'ml_data', phase_name, f'{phase_name}_scale_dict.json')
-# with open(scale_dict_path) as f:
-#     scale_dict = json.load(f)
 
 #^ convert diffraction xy to tensor (.pt)
 for i in range(len(experimental_files)):    
@@ -101,17 +109,20 @@ data_files = sorted(glob.glob(os.path.join(data_folder, '*.pt')))
 number_of_classes = len(data_files)
 first_file = torch.load(data_files[0])
 number_of_random_states = first_file.size()[0]
-number_for_testing = int(number_of_random_states*0.1)
+number_for_testing = int(number_of_random_states*percent_for_testing)
 
-data_start_index = 0 #70  #661 #TOF 23750 for NVPF  ...... # 1181 TOF 36000  for PZT_90  ....... TOF 60000 i=5390 for BSO
-data_end_index = -1 #6765 #:6061-110k:# #:6765-118k:# #3841
 
-#^ split into training and testing data
+#^ load experimental data
 expt_data = [torch.load(f) for f in experimental_files]
 if len(expt_data) > 1:
     expt_data = torch.vstack(expt_data)
-# expt_data_unscaled = torch.load(os.path.join(cwd, material_name, 'experimental_p1s', experimental_p1_filename))
-X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.configure_bragg_data_trunc(data_folder, number_of_random_states, number_for_testing, start_index=data_start_index, end_index=data_end_index)
+else:
+    expt_data = expt_data[0]
+
+
+#^ split data into training and testing sets & create labels
+X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.train_test_split(data_folder, number_of_random_states, number_for_testing)
+
 
 #^ slice training, testing, expt data to region of interest
 X_train_unscaled = X_train_unscaled[:, data_start_index:data_end_index]
@@ -121,11 +132,25 @@ if expt_data.ndim > 1:
 else:
     expt_data_unscaled = expt_data[data_start_index:data_end_index]
     expt_data_unscaled = expt_data_unscaled.unsqueeze(0)  # Add a dimension if it's a single tensor
-# expt_data_unscaled = expt_data_unscaled[data_start_index:data_end_index]
 
-# expt_data_unscaled = expt_data_unscaled*5
-# expt_data_unscaled = expt_data_unscaled-12.94
 expt_x_axis = expt_x_axis[data_start_index:data_end_index]
+
+
+#^ get cam data, raise error if not found, and slice to region of interest
+cam_data_path = ''
+for i in range(len(data_files)):
+    if subgroup_cam_target in data_files[i]:
+        cam_data_path = data_files[i]
+        break
+if create_cam and cam_data_path == '':
+    raise ValueError(f"Subgroup {subgroup_cam_target} not found in data files. Please check the subgroup name or data files.")
+
+if create_cam:
+    cam_data = torch.load(cam_data_path)
+    cam_data = cam_data.unsqueeze(0) if cam_data.ndim == 1 else cam_data  # Ensure it's 2D
+    cam_data = cam_data[:, data_start_index:data_end_index]  # Slice to region of interest
+
+
 
 #============================================================================================
 #* create dof counts for topas strs and create label mappers
@@ -133,10 +158,8 @@ expt_x_axis = expt_x_axis[data_start_index:data_end_index]
 
 dof_count_path = os.path.join(cwd, material_name, f'dof_counts_{material_name}.json')
 topas_strs_path = os.path.join(cwd, material_name, f'topas_strs_{material_name}')
-if os.path.isfile(dof_count_path):
-    print(f'dof counts already created\n')
-else:
-    util.count_dofs_topas_strs_dir(topas_strs_path, dof_count_path)
+
+util.count_dofs_topas_strs_dir(topas_strs_path, dof_count_path)
 
 with open(dof_count_path, 'r') as f:
     param_mapper = json.load(f)
@@ -152,6 +175,10 @@ label_mapper = {i: class_names[i] for i in range(len(class_names))}
 scale_data = 100
 X_train, X_test, X_expt = funcs.MinMaxScale_2d(X_train_unscaled, X_test_unscaled, expt_data_unscaled, scale=scale_data)
 # X_train, X_test, X_expt = funcs.MinMaxScale_2d(X_train_unscaled, X_test_unscaled, X_expt_unscaled, scale=scale_data)
+if create_cam:
+    print(f'Scaling CAM data: Test Max is max of {subgroup_cam_target} training data\n')
+    X_train_dummy, cam_data_scaled, X_expt_dummy = funcs.MinMaxScale_2d(X_train_unscaled, cam_data, expt_data_unscaled, scale=scale_data)
+    cam_data_scaled = torch.Tensor(cam_data_scaled).to(device)
 
 # scaler = Normalizer()
 # # scaler = MinMaxScaler(feature_range=(0,100))
@@ -160,6 +187,7 @@ X_train, X_test, X_expt = funcs.MinMaxScale_2d(X_train_unscaled, X_test_unscaled
 # X_test = scaler.transform(X_test_unscaled)
 # X_expt = scaler.transform(X_expt_unscaled)
 
+# X_train, X_test, X_expt = funcs.MaxAbsScale(X_train_unscaled, X_test_unscaled, X_expt_load=expt_data_unscaled)
 
 X_train = torch.Tensor(X_train).to(device)
 X_test = torch.Tensor(X_test).to(device)
@@ -194,13 +222,9 @@ test_loader = DataLoader(test_data, batch_size=training_batchsize, shuffle=False
 
 #* Initialize model, criterion, optimizer
 # model = xsym.CNN_bragg(num_classes=number_of_classes)
-# model = xsym.CNN_GlobalSelfAttention(num_classes=number_of_classes)
-# model = xsym.CNN_LocalAttention(num_classes=number_of_classes)
 model = xsym.CNN_MultiHeadAttention(num_classes=number_of_classes)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
-# optimizer = torch.optim.AdamW(model.parameters(), lr=0.0001, weight_decay=0.00001)
-# scheduler = MultiStepLR(optimizer, milestones=scheduler_milestones, gamma=0.1)
 scheduler = ReduceLROnPlateau(optimizer)
 previous_epochs = 0
 
@@ -212,26 +236,9 @@ model.eval()
 #* Load Pretrained Model
 if load_pretrained_model:
     checkpoint = torch.load(pretrain_path, map_location=device)
-    # previous_epochs = checkpoint['epoch']
-    # loss = checkpoint['loss']
-
-    # # Handle possible "module." prefix in state dict keys
-    # new_state_dict = OrderedDict()
-    # for k, v in checkpoint["model_state_dict"].items():
-    #     if k.startswith("module."):
-    #         new_state_dict[k.replace("module.", "")] = v
-    #     else:
-    #         new_state_dict[k] = v  # No change needed
-
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
-    # model.load_state_dict(checkpoint, strict=True)
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-    # # Move optimizer states to the correct device
-    # for param_state in optimizer.state.values():
-    #     for k, v in param_state.items():
-    #         if isinstance(v, torch.Tensor):
-    #             param_state[k] = v.to(device)
 
 #* Warmstart Model
 if warmstart_model:
@@ -293,88 +300,78 @@ if train_model == True:
 
     torch.save(model_save_dict, path_to_save_model)
 
-    # if isinstance(model, nn.DataParallel):
-    #     torch.save(model.module.state_dict(), path_to_save_model)
-    # else:
-    #     torch.save(model.state_dict(), path_to_save_model)
-    
-    # model_save_dict = {
-    #     'epoch': epochs,
-    #     'model_state_dict': model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict(),
-    #     'optimizer_state_dict': optimizer.state_dict(),
-    #     'loss': loss,
-    # }
 
-# if create_cam: 
 
-#     # Initialize GradCAM
-#     target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2
-#     # target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2.conv
-#     grad_cam = xsym.GradCAM(model, target_layer=target_layer)
+#^============================================================================================
+#* Create CAM (Class Activation Map)
+#^============================================================================================   
+if create_cam: 
 
-#     input_tensor = X_expt  # Make sure this is a proper tensor
-#     target_class = next(k for k, v in label_mapper.items() if v == ground_truth_cif)
+    # Initialize GradCAM
+    target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2
+    # target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2.conv
+    grad_cam = xsym.GradCAM(model, target_layer=target_layer)
 
-#     cam = grad_cam.generate_cam(input_tensor, target_class=int(target_class))
-#     print(f"Final CAM Shape: {cam.shape}")  # Debugging
+    # Subset training data for target class (e.g., class 5)
+    input_batch = cam_data_scaled  # shape: (N, seq_len)
+    target_class = label_mapper.get(subgroup_cam_target)
 
-#     cam = cam.squeeze()
-#     #! change expt[0] to something better here
-#     save_name_cam = f'CAM_{ground_truth_cif}_{os.path.splitext(expt_data[0])[0]}.png'
-#     xsym.plot_cam(X_expt.cpu().numpy(), 
-#                   cam, 
-#                   x_axis=expt_x_axis, 
-#                   x_units='ToF (μs)', 
-#                   save_name=save_name_cam, 
-#                   title=f'CAM for STR {ground_truth_cif}', 
-#                   overlay=True, 
-#                   dpi=600)
+    # Compute average CAM
+    avg_cam = grad_cam.generate_average_cam(input_batch, target_class)
+
+    # Plot over experimental pattern
+    xsym.plot_avg_cam_with_expt(xrd_expt=X_expt.cpu().numpy(), 
+                                avg_cam=avg_cam, 
+                                x_axis=expt_x_axis, 
+                                x_units = cam_x_units_label, 
+                                save_name= cam_save_name, 
+                                legend_label = cam_legend_label)
 
 
 #* Dictionary to store misclassified labels
 misclassified_counts = defaultdict(int)
 
 #^ Run Validation
-if train_model:
-    number_of_top_results = min(20, number_of_classes)
-    total = 0
-    correct_top_k = torch.zeros(number_of_top_results, device=device)  # Store counts for Top-1 to Top-k
 
-    with torch.no_grad():
-        for inputs, labels in test_loader:
-            model.eval()
-            inputs, labels = inputs.to(device), labels.to(device)
-            predicted = model(inputs)
-            total += labels.size(0)
-            # Get top-k predictions
-            top_k_vals, top_k_indices = torch.topk(predicted, number_of_top_results, dim=1)  # (values, indices)
-            
-            # Check if the correct labels are in the top-k predictions
-            correct_matrix = top_k_indices.eq(labels.view(-1, 1).expand_as(top_k_indices))  # Shape: (batch_size, k)
+number_of_top_results = min(10, number_of_classes)
+total = 0
+correct_top_k = torch.zeros(number_of_top_results, device=device)  # Store counts for Top-1 to Top-k
 
-            # Accumulate counts for Top-1 to Top-k
-            for k in range(number_of_top_results):
-                correct_top_k[k] += correct_matrix[:, : (k + 1)].sum().item()
+with torch.no_grad():
+    for inputs, labels in test_loader:
+        model.eval()
+        inputs, labels = inputs.to(device), labels.to(device)
+        predicted = model(inputs)
+        total += labels.size(0)
+        # Get top-k predictions
+        top_k_vals, top_k_indices = torch.topk(predicted, number_of_top_results, dim=1)  # (values, indices)
+        
+        # Check if the correct labels are in the top-k predictions
+        correct_matrix = top_k_indices.eq(labels.view(-1, 1).expand_as(top_k_indices))  # Shape: (batch_size, k)
 
-            # Track misclassifications (if the label is never in the top-10)
-            for i in range(len(labels)):
-                label = labels[i].item()  # Convert label tensor to int
-                if not correct_matrix[i].any():  # If correct label is not in top-10
-                    misclassified_counts[label] += 1  # Increment count for this label
+        # Accumulate counts for Top-1 to Top-k
+        for k in range(number_of_top_results):
+            correct_top_k[k] += correct_matrix[:, : (k + 1)].sum().item()
 
-    # Print misclassification summary
-    print("\nMisclassification Summary (Labels not in Top 10):")
-    for label, count in misclassified_counts.items():
-        class_name = label_mapper.get(label, f"Unknown ({label})")
-        print(f"Class '{class_name}' (Label {label}): {count} times")
+        # Track misclassifications (if the label is never in the top-10)
+        for i in range(len(labels)):
+            label = labels[i].item()  # Convert label tensor to int
+            if not correct_matrix[i].any():  # If correct label is not in top-10
+                misclassified_counts[label] += 1  # Increment count for this label
 
-    # Print Top-k Accuracy
-    print("\nTop-k Accuracy:")
-    correct_list = []
-    for k in range(number_of_top_results):
-        accuracy = round(100 * (correct_top_k[k].item() / total), 2)
-        print(f'Top {k+1} Accuracy: {accuracy:.2f}%')
-        correct_list.append([k+1, accuracy])
+# Print misclassification summary
+print("\nMisclassification Summary (Labels not in Top 10):")
+for label, count in misclassified_counts.items():
+    class_name = label_mapper.get(label, f"Unknown ({label})")
+    print(f"Class '{class_name}' (Label {label}): {count} times")
+
+# Print Top-k Accuracy
+print("\nTop-k Accuracy:")
+validation_list = []
+for k in range(number_of_top_results):
+    accuracy = round(100 * (correct_top_k[k].item() / total), 2)
+    print(f'Top {k+1} Accuracy: {accuracy:.2f}%')
+    validation_list.append([k+1, accuracy])
 
 print()
 t1 = time.time()
@@ -387,7 +384,7 @@ print(runtime)
 #============================================================================================   
 
 if classify_experiment == True:
-    number_of_top_results = min(5, number_of_classes)
+    number_of_top_results = min(10, number_of_classes)
     param_weight = list(range(number_of_top_results, 0, -1))  
 
     # Dictionaries to store confidence metrics
@@ -395,85 +392,78 @@ if classify_experiment == True:
     ranked_confidence_results = defaultdict(int)
     weighted_confidence_results = {}
     logit_results = defaultdict(list)
+    predicted_subgroups_dof = []
 
-    with torch.no_grad():
-        for i in range(X_expt.shape[0]):
-            model.eval()
-            predicted = model(X_expt[i].unsqueeze(0))  # Add batch dimension
-            # predicted = model(X_expt)
-            top_logits, top_indices = torch.topk(predicted, number_of_top_results, dim=1)
-
-            # Convert to lists
-            top_indices = top_indices[0].tolist()  # Extract first batch element
-            top_logits = top_logits[0].tolist()  # Extract first batch element
-            # round each number in top_logits to have 8 decimal places
-            top_logits = [round(x, 8) for x in top_logits]
-            predicted_subgroups = [label_mapper[x] for x in top_indices]  # Map indices to class names
-            results = {'subgroups': predicted_subgroups, 'logits': top_logits}#, 'indices': top_indices}
-            logit_results.update({experimental_names[i]:results})
-
-
-    # Save to JSON
-    json_path = os.path.join(cwd, material_name, 'logit_results.json')
-    funcs.save_dict_to_json(logit_results, json_path) 
-
+    #^ Code block only for ILLUMINE project
     # with torch.no_grad():
-    #     for _ in range(confidence_iterations):
+    #     for i in range(X_expt.shape[0]):
     #         model.eval()
-    #         predicted = model(X_expt)
+    #         predicted = model(X_expt[i].unsqueeze(0))  # Add batch dimension
     #         # predicted = model(X_expt)
     #         top_logits, top_indices = torch.topk(predicted, number_of_top_results, dim=1)
 
     #         # Convert to lists
     #         top_indices = top_indices[0].tolist()  # Extract first batch element
+    #         top_logits = top_logits[0].tolist()  # Extract first batch element
+    #         # round each number in top_logits to have 8 decimal places
+    #         top_logits = [round(x, 8) for x in top_logits]
     #         predicted_subgroups = [label_mapper[x] for x in top_indices]  # Map indices to class names
+    #         results = {'subgroups': predicted_subgroups, 'logits': top_logits}#, 'indices': top_indices}
+    #         logit_results.update({experimental_names[i]:results})
 
-    #         # Update confidence tracking
-    #         for j, subgroup in enumerate(predicted_subgroups):
-    #             confidence_results[subgroup] += 1
-    #             ranked_confidence_results[subgroup] += param_weight[j]
-
-    # # Apply parameter mapping outside loop
-    # for key in confidence_results:
-    #     weighted_confidence_results[key] = param_mapper.get(key) 
-
-    # # Sort results before output
-    # confidence_results = dict(sorted(confidence_results.items(), key=lambda x: x[1], reverse=True))
-    # weighted_confidence_results = dict(sorted(weighted_confidence_results.items(), key=lambda x: x[1]))
-    # ranked_confidence_results = {k: v / confidence_iterations for k, v in ranked_confidence_results.items()}
-
-    # # Print results
-    # print("\nSubgroup: Top10 Rating, DOF, Place Score")
-    # for key in confidence_results:
-    #     print(f"{key}: {confidence_results[key]}, {weighted_confidence_results[key]}, {ranked_confidence_results[key]:.2f}")
-
-    # # Add metadata
-    # confidence_results.update({
-    #     'material_name': material_name,
-    #     'phase_name': phase_name,
-    #     'model_name': model.__class__.__name__,
-    #     'epochs': epochs,
-    #     'scheduler_milestones': scheduler_milestones,
-    #     'train_batchsize': training_batchsize,
-    #     'data_start_index': data_start_index,
-    #     'data_end_index': data_end_index,
-    #     'training_data': data_folder,
-    #     'classified_data': expt_data,
-    #     'minmax2d_scale': scale_data,
-    #     'saved_model': path_to_save_model,
-    #     'num_gpus': len(logical_gpus),
-    #     'model': str(model)
-    # })
-
-    # # Optional metadata
-    # if warmstart_model:
-    #     confidence_results['warmstart_from'] = warmstart_path
-    # if load_pretrained_model:
-    #     confidence_results['pretrained_model'] = pretrain_path
-    # if train_model:
-    #     confidence_results['validation_accuracy'] = correct_list
-    # confidence_results['runtime'] = runtime
 
     # # Save to JSON
-    # json_path = os.path.join(cwd, material_name, f'z_{os.path.splitext(os.path.basename(path_to_save_model))[0]}.json')
-    # funcs.save_dict_to_json(confidence_results, json_path)
+    # json_path = os.path.join(cwd, material_name, 'logit_results.json')
+    # funcs.save_dict_to_json(logit_results, json_path) 
+
+    # # Save logit results to CSV
+    # save_logits_path = os.path.join(cwd, material_name, f'{phase_name}_logit_results.csv')
+    # save_subgroups_path = os.path.join(cwd, material_name, f'{phase_name}_subgroup_results.csv')
+    # util.save_logits_table(logit_results, number_of_top_results, save_logits_path, save_subgroups_path)
+
+    with torch.no_grad():
+        model.eval()
+        predicted = model(X_expt)
+        top_logits, top_indices = torch.topk(predicted, number_of_top_results, dim=1)
+        # Convert to lists
+        top_indices = top_indices[0].tolist()  # Extract first batch element
+        top_logits = top_logits[0].tolist()  # Extract first batch element
+        top_logits = [round(x, 4) for x in top_logits]
+        predicted_subgroups = [label_mapper[x] for x in top_indices]  # Map indices to class names
+    
+    for key in predicted_subgroups:
+        predicted_subgroups_dof.append(param_mapper.get(key))
+
+    # zip predicted_subgroups and their dof counts together
+    predicted_with_dof = list(zip(predicted_subgroups, predicted_subgroups_dof))
+    print(f'\nPredicted Subgroups and DOF Counts: \n')
+    print(f'Rank, Subgroup, DOF Count, Logit')
+    for i in range(len(predicted_subgroups)):
+        print(f'{i:<2}: {predicted_subgroups[i]:<4} {predicted_subgroups_dof[i]:<4} {top_logits[i]:<8}\n')
+
+    with open(os.path.join(cwd, material_name, f'zz_{os.path.splitext(os.path.basename(path_to_save_model))[0]}.txt'), 'w') as f:
+        f.write(f'material: {material_name}\n')
+        f.write(f'phase: {phase_name}\n')
+        f.write(f'Experimental Data: {experimental_names}\n\n')
+        f.write(f'Top Predicted Subgroups, Logits, DOF Count:\n')
+        for i in range(len(predicted_subgroups)):
+            f.write(f'{predicted_subgroups[i]}, {top_logits[i]}, {predicted_subgroups_dof[i]}\n')
+        f.write(f'\nModel Information:\n')
+        f.write(f'Epochs: {epochs}\n')
+        f.write(f'Training Batch Size: {training_batchsize}\n')
+        f.write(f'Training Data: {data_folder}\n')
+        f.write(f'Data Start/End Indices: {data_start_index} to {data_end_index}\n')
+        f.write(f'MinMax2d Scale Factor: {scale_data}\n')
+        f.write(f'Saved Model: {path_to_save_model}\n')
+        if warmstart_model:
+            f.write(f'Warmstarted From: {warmstart_path}\n')
+        if load_pretrained_model:
+            f.write(f'Pretrained From: {pretrain_path}\n')
+
+        f.write(f'\nValidation Top-k Accuracy: Prediction Rank (k), % Accuracy \n')
+        for i in range(len(validation_list)):
+            f.write(f'Top {validation_list[i][0]} accuracy, {validation_list[i][1]} \n')
+
+        f.write(f'\nRuntime: {(t1-t0)/60} minutes\n')
+        f.write(f'Number of GPUs Used: {len(logical_gpus)}\n')
+        f.write(f'\nModel Structure:\n {str(model)}\n')

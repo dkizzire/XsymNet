@@ -31,43 +31,50 @@ def main():
     #* START OF USER INPUT
     #* ------------------------------------------------------------------------------------------------------
     NUM_THREADS = 5                                 #^ default = 5; number of threads to launch to optimize scale or create randomstates
-    material_name = 'fe2o3'                           #^ name of your material
-    phase_name = 'bank_5'                       
-    instrument_file = 'nomad_bank_5.txt'                     #^ located in ./instrument_parameters
-    peakshape_file = 'nomad_bank_5_peak_type.txt'            #^ located in ./instrument_parameters
+    material_name = 'pzt90'                           #^ name of your material
+    phase_name = 'beta_8'                       
+    instrument_file = 'hrpd_beta.txt'                     #^ located in ./instrument_parameters
+    peakshape_file = 'hrpd_peak_type.txt'            #^ located in ./instrument_parameters
     number_of_random_states = 250                   #^ = 1 : Rietveld of whole subgroup tree;  = ~250-500 create randomstates for ML training 
     path_to_topas_directory = 'C:\TOPAS6'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
     diffraction_type = 'neutron'                       #^ choices: neutron or xray
     optimize_scale = False                           #^ Generates better scale values for each subgroup
     flag_create_randomstates = True                 #^ True or False
 
-    use_strain_modes = True                         #^ only change if you are using custom latparams
+    use_strain_modes = False                         #^ only change if you are using custom latparams
     random_strain_bounds = [-0.002, 0.002]          #^ default -> [-0.001, 0.001]  ::NOTE:: tiny changes here make a BIG difference in lattice parameter
 
     #^ Bounds for a,b,c,alpha,beta,gamma random perturbation (used if use_strain_modes == False)
     use_custom_latparams = False                    #^ If you have a structure with crazy strain
     if use_custom_latparams:
         use_strain_modes = False
-    custom_latparam_bounds = [[-0.02, 0.02], [-0.02, 0.02], [-0.02, 0.02], [-1, 1], [-1, 1], [-1, 1]] 
+        
+    # custom_latparam_bounds = [[-0.02, 0.02], [-0.02, 0.02], [-0.02, 0.02], [-1, 1], [-1, 1], [-1, 1]] # custom lats for alpha BiSn2O7
+    custom_latparam_bounds = [[-0.1, 0.1], [-0.1, 0.1], [-0.01, 0.2], [-1, 1], [-1, 1], [-1, 1]] # custom lats for PZT90
     
     
     #^ experimental xy file to use for xdd section of TOPAS when creating randomstates
-    experimental_data_file = f'nom_208518_100-4.h5.xye'
+    experimental_data_file = f'Hrp27190_bs.xye'
     experimental_data_path = os.path.join(cwd, material_name, experimental_data_file)
+    assert os.path.exists(experimental_data_path), f'Error: {experimental_data_path} does not exist. Please check the path to your experimental data file.'
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
     #^ custom macros file (appended to bottom of input files)
-    use_custom_macros = True
+    use_custom_macros = False
     if use_custom_macros:
-        custom_macros_file = 'nomad_bank_5_macros.txt'
-        custom_macros = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', custom_macros_file))
+        custom_macros_file = 'powgen_macros.txt'
+        custom_macro_path = os.path.join(cwd, 'instrument_parameters', custom_macros_file) 
+        assert os.path.exists(custom_macro_path), f'Error: {custom_macro_path} does not exist. Please check the path to your custom macros file.'
+        custom_macros = funcs.instrument_parameters(custom_macro_path)
     else:
         custom_macros = '\n'
 
     #^ custom lines to add before xdd section
-    use_pre_xdd = True
+    use_pre_xdd = False
     if use_pre_xdd:
         pre_xdd_file = 'nomad_bank_5_pre_xdd.txt'
+        pre_xdd_file_path = os.path.join(cwd, 'instrument_parameters', pre_xdd_file)
+        assert os.path.exists(pre_xdd_file_path), f'Error: {pre_xdd_file_path} does not exist. Please check the path to your pre xdd file.'
         pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', pre_xdd_file))
     else:
         pre_xdd_lines = '\n'
@@ -77,12 +84,12 @@ def main():
     #     'O': [0.0, 1.5]
     # }
     
-    # beq_dict = {
-    #     'Bi1': [0.0, 1.0],
-    #     'Sn1': [0.0, 1.0],
-    #     'O1': [0.0, 1.0], 
-    #     'O2': [0.0, 1.0]
-    # }
+    beq_dict = {
+        'Bi1': [0.0, 1.0],
+        'Sn1': [0.0, 1.0],
+        'O1': [0.0, 1.0], 
+        'O2': [0.0, 1.0]
+    }
     # beq_dict = {
     #     'V': [0.0, 1.0],
     #     'P': [0.0, 1.0],
@@ -91,10 +98,10 @@ def main():
     #     'Na': [0.0, 1.0]
     # }
     # beq_dict = {
-    #     'Pb1': [0.5, 4.5],
-    #     'Zr1': [0.5, 1.5],
-    #     'Ti1': [0.5, 2.5], 
-    #     'O1': [0.5, 3.0]
+    #     'Pb1': [0.0, 1.0],
+    #     'Zr1': [0.0, 1.0],
+    #     'Ti1': [0.0, 1.0], 
+    #     'O1':  [0.0, 1.0]
     # }
 
     # beq_dict = {
@@ -109,19 +116,22 @@ def main():
     #     'H2': [0.0, 1.0]
     # }
 
-    beq_dict = {
-        'Fe': [0.0, 1.0],
-        'O': [0.0, 1.0]
-    }
+    # beq_dict = {
+    #     'Fe': [0.0, 1.0],
+    #     'O': [0.0, 1.0]
+    # }
 
     #* ------------------------------------------------------------------------------------------------------
     #* END OF USER INPUT
     #* ------------------------------------------------------------------------------------------------------
 
+
     str_files = sorted(glob.glob(os.path.join(cwd, material_name, f'topas_strs_{material_name}', '*.str')))
+    assert len(str_files) > 0, f'Error: No .str files found in {os.path.join(cwd, material_name, f"topas_strs_{material_name}")}. Please check the path to your .str files.'
     # str_files = str_files[25:30]
 
     cif_files = sorted(glob.glob(os.path.join(cwd, material_name, f'subgroup_cifs_{material_name}', '*')))
+    assert len(cif_files) > 0, f'Error: No CIF files found in {os.path.join(cwd, material_name, f"subgroup_cifs_{material_name}")}. Please check the path to your CIF files.'
     cif_filenames = [os.path.basename(x) for x in cif_files]
     cif_noext = [os.path.splitext(x)[0] for x in cif_filenames]
     subgroup_nums = [x[3:] for x in cif_noext]
@@ -130,6 +140,7 @@ def main():
     # topas output files from preliminary pawley refinement of subgroup tree lattice parameters
     if use_custom_latparams == True:
         easy_grab_files = sorted(glob.glob(os.path.join(cwd, material_name, 'SGT_pawley_refinement', '*', '*.out')))
+        assert len(easy_grab_files) > 0, f'Error: No .out files found in {os.path.join(cwd, material_name, "SGT_pawley_refinement")}. Please check the path to your .out files.'
 
     #* ------------------------------------------------------------------------------------------------------
     #* Initiate threading task queue
@@ -160,6 +171,10 @@ def main():
     global_lines = funcs.global_parameters()
     xdd_lines = funcs.xdd(xdd_winpath)
     # ----- generate instrument specific lines -----
+    instrument_file_path = os.path.join(cwd, 'instrument_parameters', instrument_file)
+    assert os.path.exists(instrument_file_path), f'Error: {instrument_file_path} does not exist. Please check the path to your instrument file.'
+    peakshape_file_path = os.path.join(cwd, 'instrument_parameters', peakshape_file)
+    assert os.path.exists(peakshape_file_path), f'Error: {peakshape_file_path} does not exist. Please check the path to your peakshape file.'
     instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
     peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
 

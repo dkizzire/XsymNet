@@ -51,10 +51,44 @@ def save_kernel_weights(model, epoch, save_file="kernel_weights.txt"):
     print(f"Kernel weights appended for epoch {epoch} in {save_file}")
 
 
+def train_test_split(path2braggdata, n_randomstates, n_testing):
+    
+    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+
+    xtrain_list = []
+    xtest_list = []
+    ytrain_list = []
+    ytest_list = []
+
+    split_index = n_randomstates - n_testing
+        
+    for i in range(len(filepaths)):
+        temp = torch.load(filepaths[i])
+        count = 0
+        for j in range(temp.shape[0]):
+            if count < split_index:
+                xtrain_list.append(temp[j])
+                ytrain_list.append(i)
+            else:
+                xtest_list.append(temp[j])
+                ytest_list.append(i)
+            count+=1
+
+    xtrain = torch.vstack(xtrain_list)
+    xtest = torch.vstack(xtest_list)
+    ytrain = torch.tensor(ytrain_list)
+    ytest = torch.tensor(ytest_list)
+
+    print(f'Configure Bragg:')
+    print(f'Train_MAX: {torch.max(xtrain):.2f}\nTrain_MIN: {torch.min(xtrain):.2f}')
+    print(f'Test_MAX: {torch.max(xtest):.2f}\nTest_MIN: {torch.min(xtest):.2f}\n')
+
+
+    return xtrain, xtest, ytrain, ytest
 
 
 def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, scaling_dict={}, start_index:int = 0, end_index:int = -1):
-    
+    '''depreciated'''
     filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
 
     xtrain_list = []
@@ -81,11 +115,11 @@ def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, scalin
         # temp = ManualScale(temp, expt_max, i)
         # temp = ManualScaleConstant(temp, scalefactor=0.001)
         #^ here we apply the optimal scale factor for each subgroup
-        if len(keys) > 0:
-            temp_max = torch.max(temp)
-            temp = temp*scaling_dict[keys[i]]
-            scaled_max = torch.max(temp)
-            print(f'SGT {os.path.splitext(os.path.basename(filepaths[i]))[0]} max: {temp_max:.2f}   scaled: {scaled_max:.2f}')
+        # if len(keys) > 0:
+        #     temp_max = torch.max(temp)
+        #     temp = temp*scaling_dict[keys[i]]
+        #     scaled_max = torch.max(temp)
+        #     print(f'SGT {os.path.splitext(os.path.basename(filepaths[i]))[0]} max: {temp_max:.2f}   scaled: {scaled_max:.2f}')
 
         count = 0
         for j in range(temp.shape[0]):
@@ -128,7 +162,6 @@ def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, scalin
     return xtrain, xtest, ytrain, ytest
 
 
-
 def MinMaxScale_2d(train, test, expt=None, scale=1):
 
     expt_min = 0
@@ -142,9 +175,9 @@ def MinMaxScale_2d(train, test, expt=None, scale=1):
         # expt = expt*expt_scale
         expt_min = torch.min(expt)
         expt_max = torch.max(expt)
-        print(f'Expt MAX:{expt_max:.2f}\nExpt MIN:{expt_min:.2f}\n')
+        # print(f'Expt MAX:{expt_max:.2f}\nExpt MIN:{expt_min:.2f}\n')
 
-    print(f'Normalization with MinMaxScale2d:')
+    # print(f'Normalization with MinMaxScale2d:')
 
     train_scaled = ((train-min_val) / (max_val - min_val))*scale
     test_scaled = ((test - min_val) / (max_val - min_val))*scale
@@ -160,15 +193,14 @@ def MinMaxScale_2d(train, test, expt=None, scale=1):
     else:
         expt_scaled = None
         
-    if expt != None:
-        print(f'Expt MAX:{torch.max(expt_scaled):.2f}\nExpt MIN:{torch.min(expt_scaled):.2f}\n')
-    print(f'Train_MAX:{torch.max(train_scaled):.2f}\nTrain_MIN:{torch.min(train_scaled):.2f}\n')
-    print(f'Test_MAX:{torch.max(test_scaled):.2f}\nTest_MIN:{torch.min(test_scaled):.2f}\n')
+    # if expt != None:
+    #     print(f'Expt MAX:{torch.max(expt_scaled):.2f}\nExpt MIN:{torch.min(expt_scaled):.2f}\n')
+    # print(f'Train_MAX:{torch.max(train_scaled):.2f}\nTrain_MIN:{torch.min(train_scaled):.2f}\n')
+    # print(f'Test_MAX:{torch.max(test_scaled):.2f}\nTest_MIN:{torch.min(test_scaled):.2f}\n')
     return train_scaled, test_scaled, expt_scaled
 
 
-
-def MaxAbsScale(X_train_load, X_test_load):
+def MaxAbsScale(X_train_load, X_test_load, X_expt_load=None):
     '''
     Purpose: 
         Uses sklearn's MaxAbsScaler to build scaling transformer from X_train 
@@ -183,13 +215,32 @@ def MaxAbsScale(X_train_load, X_test_load):
 
     training_local = X_train_load.numpy(force=True)
     testing_local = X_test_load.numpy(force=True)
+    if X_expt_load is not None:
+        expt_local = X_expt_load.numpy(force=True)
+        print(f'Pre-MAXABS SCALE \n Expt MAX: {np.max(expt_local):.2f}\nExpt MIN: {np.min(expt_local):.2f}\n')
+    else:
+        expt_local = None
 
     transformer = MaxAbsScaler().fit(training_local)
     training_scaled = transformer.transform(training_local)
     testing_scaled = transformer.transform(testing_local)
+    if expt_local is not None:
+        expt_scaled = transformer.transform(expt_local)
+        print(f'Expt MAX: {np.max(expt_scaled):.2f}\nExpt MIN: {np.min(expt_scaled):.2f}\n')
+    else:
+        expt_scaled = None
 
     X_train = torch.tensor(training_scaled)
     X_test = torch.tensor(testing_scaled)
+    if expt_scaled is not None:
+        X_expt = torch.tensor(expt_scaled)
+        print(f'Train_MAX: {torch.max(X_train):.2f}\nTrain_MIN: {torch.min(X_train):.2f}\n')
+        print(f'Test_MAX: {torch.max(X_test):.2f}\nTest_MIN: {torch.min(X_test):.2f}\n')
+        print(f'Expt MAX: {torch.max(X_expt):.2f}\nExpt MIN: {torch.min(X_expt):.2f}\n')
+        return X_train, X_test, X_expt
+    else:
+        print(f'Train_MAX: {torch.max(X_train):.2f}\nTrain_MIN: {torch.min(X_train):.2f}\n')
+        print(f'Test_MAX: {torch.max(X_test):.2f}\nTest_MIN: {torch.min(X_test):.2f}\n')
     
     return X_train, X_test
 
@@ -202,9 +253,6 @@ def MinMaxScale(tensor):
         temp_tensor = (tensor[i]-min_val) / (max_val - min_val)
         scaled_tensor[i] = temp_tensor
     return scaled_tensor
-
-
-
 
 
 def get_subgroup_info(subgroup_num, cif_folder_path):
@@ -245,6 +293,71 @@ def get_subgroup_info(subgroup_num, cif_folder_path):
     return return_list
 
 
+def get_str_info(str_path, str_type):
+    '''
+    Parameters
+    ----------
+    str_path: str
+        Full path to the topas_str file generated by isodistort
+    str_type: string
+        accepted inputs: 
+            'regular' for a regular isodistort topas str file
+            'strain' for an isodistort topas str file with strain modes
+        
+    Returns:
+    ----------
+    a,b,c,alpha,beta,gamma: list of floats
+    sg_o = spacegroup & origin & HM_name: list of ints and string
+    '''
+    lines = []
+    with open(str_path, 'r') as f:
+        lines = f.readlines()
+
+    # extract the spacegroup, origin choice, and Herman-Maugin Spacegroup name    
+    oline = lines[4].strip()
+    sg_name = oline.split(':')[0].strip("'")
+
+    if ':' in oline:
+        origin = int(oline.split(':')[1])
+    else:
+        origin = 1
+    
+    sg = int(lines[5].strip().split()[1])
+
+
+    # grabs the standard lattice parameters
+    if str_type == 'regular':
+        for i in range(len(lines)):
+            if 'space_group' in lines[i]:
+                alat = float(lines[i+1].strip().split()[1])
+                blat = float(lines[i+2].strip().split()[1])
+                clat = float(lines[i+3].strip().split()[1])
+                alpha = float(lines[i+4].strip().split()[1])
+                beta = float(lines[i+5].strip().split()[1])
+                gamma = float(lines[i+6].strip().split()[1])
+                break
+        
+
+    # grabs the strain mode defined lattice parameters
+    elif str_type == 'strain':
+        for i in range(len(lines)):
+            if 'celltransform(' in lines[i]:
+                alat = float(lines[i+2].strip().split(':')[1].strip())
+                blat = float(lines[i+3].strip().split(':')[1].strip())
+                clat = float(lines[i+4].strip().split(':')[1].strip())
+                alpha = float(lines[i+5].strip().split(':')[1].strip())
+                beta = float(lines[i+6].strip().split(':')[1].strip())
+                gamma = float(lines[i+7].strip().split(':')[1].strip())
+                break
+    
+    else:
+        raise ValueError("Invalid str_type. It must be either 'regular' or 'strain'.")
+
+    latparams = [alat, blat, clat, alpha, beta, gamma]
+    sg_o = [sg, origin, sg_name]
+    return latparams, sg_o 
+
+
 def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     
     filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
@@ -275,23 +388,6 @@ def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
     return xtrain, xtest, ytrain, ytest
 
 
-# def ManualScale(data, expt, num_sgs, n_randomstates):
-
-#     expt_max = torch.max(expt)
-#     print(f'\n\nexpt_max: {expt_max}\n\n')
-#     scaled_data = data
-#     for i in range(num_sgs):
-
-#         a = i*n_randomstates
-#         b = a+n_randomstates
-#         temp_max = torch.max(data[a:b])
-#         scaling = expt_max/temp_max
-#         scaled_data[a:b] = data[a:b]*scaling
-#         temp2_max = torch.max(data[a:b])
-#         print(f'subgroup {i} max: {temp_max}, {temp2_max}, {scaling}')
-#     return scaled_data
-
-
 def ManualScale(data, expt_max, i):
 
     temp_max = torch.max(data)
@@ -302,14 +398,12 @@ def ManualScale(data, expt_max, i):
 
     return scaled_data
 
+
 def ManualScaleConstant(data, scalefactor):
 
     scaled_data = data*scalefactor
     
     return scaled_data
-
-
-
 
 
 def configure_hkl_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing, maplocation):

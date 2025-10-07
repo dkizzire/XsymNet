@@ -1,2 +1,2 @@
 		peak_type pv
-		TOF_CS_L (@ , 581.69638, difc_1)
+		TOF_CS_L (!peak_foobar , 581.69638, difc_1)

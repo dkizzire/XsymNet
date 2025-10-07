@@ -32,6 +32,59 @@ def assert_positive_integer(value):
     assert value > 0, "Value must be positive"
 
 
+def par2vec(par):
+    # Converts from parametric form to vectorial form
+    # Lattice parameters are input as a 6 dimensional vector
+    # Returns the lattice vectors as a 3x3 matrix, with each
+    #   vector as a row-vector
+    a = par[0]
+    b = par[1]
+    c = par[2]
+    alpha = np.deg2rad(par[3])
+    beta  = np.deg2rad(par[4])
+    gamma = np.deg2rad(par[5])
+    
+    a1 = a
+    vec_a = np.array([a1,0,0])
+    
+    b1 = b*np.cos(gamma)
+    b2 = np.sqrt(b**2 - b1**2)
+    vec_b = np.array([b1,b2,0])
+    
+    c1 = c*np.cos(beta)
+    c2 = ((b*c*np.cos(alpha))- b1*c1)/b2
+    c3 = np.sqrt(c**2 - c1**2 - c2**2)
+    vec_c = np.array([c1,c2,c3])
+    
+    abc_vec = np.array([vec_a,vec_b,vec_c])
+    return abc_vec
+
+
+def vec2par(vec):
+    # Converts from vectorial form to parametric form
+    # Vectors are input as a 3x3, with each lattice
+    #   as a row-vector
+    # Returns the lattice parameters as a 
+    #   6 dimensional vector
+    
+    vec_a = vec[0,:]
+    vec_b = vec[1,:]
+    vec_c = vec[2,:]
+    
+    a = np.linalg.norm(vec_a)
+    b = np.linalg.norm(vec_b)
+    c = np.linalg.norm(vec_c)
+    
+    alpha = np.rad2deg(np.arccos(np.dot(vec_b,vec_c)/(b*c)))
+    beta  = np.rad2deg(np.arccos(np.dot(vec_a,vec_c)/(a*c)))
+    gamma = np.rad2deg(np.arccos(np.dot(vec_a,vec_b)/(a*b)))
+    
+    par = np.array([a,b,c,alpha,beta,gamma])
+    return par
+
+
+
+
 # ------ Refinement Options ------
 def refinement_options(iters:int = 0, converge:float = 0.0001, continue_on_convergence:bool = False, anneal:bool = False, anneal_param:float = 0.00001, do_errors:bool = False, limit_warn:bool = False, suppress_out_file:bool = False):
     
@@ -460,13 +513,13 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
                     i = j
                     break
         
-        if 'mode-dependent sites' in f[i]:
-            for j in range(i+1, len(f)):
-                if 'site' in f[j]:
-                    count = count+1
-                if len(f[j].strip()) == 0:                        
-                    break   
-            break
+        # if 'mode-dependent sites' in f[i]:
+        #     for j in range(i+1, len(f)):
+        #         if 'site' in f[j]:
+        #             count = count+1
+        #         if len(f[j].strip()) == 0:                        
+        #             break   
+        #     break
     
     return count
 
@@ -2131,7 +2184,7 @@ def parse_topas_str(file_lines, end_string, i):
 
 
 
-def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, use_strain_modes = True, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_ma_macro=False):
+def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, use_strain_modes = True, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_strain=False, use_vc_dist=False, strain_limits_off=False, distortion_limits_off=False):
     '''
     Parameters
     ----------
@@ -2264,13 +2317,21 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
                     split = str_strain[j].split()
                     if len(split) == 0:
                         break
+                    # define new random strain value
                     split = str_strain[j].split()
-                    # new_strain = float(split[2]) + random_strain[random_count]
                     new_strain = random_strain[random_count]
 
+                    # modify line to include vc_strain macro or remove strain limits
                     strain_refine_line = split[1]
                     if refine_strain == True:
                         strain_refine_line = split[1].strip('!')
+                    if use_vc_strain and strain_limits_off:
+                        split[3] = 'vc_strain \'min'
+                    if use_vc_strain and not strain_limits_off:
+                        split[3] = 'vc_strain min'
+                    if not use_vc_strain and strain_limits_off:
+                        split[3] = '\'min'
+
                     newline = f'\t\t{split[0]}  {strain_refine_line}      {new_strain:.8f} {split[3]}  {split[4]} {split[5]}  {split[6]} {split[7]}\n'
                     random_count += 1
                     str_strain[j] = newline
@@ -2301,11 +2362,17 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
         # generate random intial values for mode amplitudes
         rand_values = np.random.normal(0, .15, len(mode_definitions_df))
         mode_definitions_df[2] = rand_values
-
-        # augment each line of mode amplitudes to include vc macro
-        if use_vc_ma_macro == True:
-            vc_column = ['vc min']*len(mode_definitions_df)
+            
+        # augment mode amplitude lines to include vc macro or remove distortion limits
+        if use_vc_dist and distortion_limits_off:
+            vc_column = ['vc_dist \'min']*len(mode_definitions_df)
             mode_definitions_df[3] = vc_column
+        if use_vc_dist and not distortion_limits_off:
+            vc_column = ['vc_dist min']*len(mode_definitions_df)
+            mode_definitions_df[3] = vc_column
+        if not use_vc_dist and distortion_limits_off:
+            no_limits_column = ['\'min']*len(mode_definitions_df)
+            mode_definitions_df[3] = no_limits_column
 
         #! remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
         if refine_distortion == True:

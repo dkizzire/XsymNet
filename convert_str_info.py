@@ -1,8 +1,8 @@
 import os
 
 
-parent_cell = 'straincell(5.25850,5.25850,22.71890,90.00000,90.00000,90.00000)'
-transform =   'celltransform(0,-1,0,1,0,0,0,0,1)'
+parent_cell = 'straincell(3.99519,3.99519,3.99519,90.00000,90.00000,90.00000)'
+transform =   'celltransform(0,1,0,0,0,1,1,0,0)'
 
 parent_cell = parent_cell.replace('straincell', '').replace('(', '').replace(')', '')
 transform = transform.replace('celltransform', '').replace('(', '').replace(')', '')

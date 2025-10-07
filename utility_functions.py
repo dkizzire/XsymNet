@@ -54,10 +54,14 @@ def convert_bragg_to_tensors(filepath):
     '''
 
     # read in hkl lists from topas output and sort the hkl lists by ascending d_spacing
-    bragg = pd.read_csv(filepath, sep='\s+', header = None, names = ['tof','i'], usecols=['i']).T
+    data = pd.read_csv(filepath, sep='\s+', header = None, names = ['tof','i'])
+    tof = data['tof'].T
+    bragg = data['i'].T
+    x_axis = torch.tensor(tof.values, dtype=torch.float)
     bragg_tensor = torch.tensor(bragg.values, dtype=torch.float)
 
-    return bragg_tensor
+
+    return bragg_tensor, x_axis
 
 
 def get_d_bounds_for_binning(hkl_files_paths, experimental_hkl_path=None):
@@ -197,13 +201,13 @@ def count_refinable_parameters_in_topas_strs(topas_str_path):
                         i = j
                         break
             
-            if 'mode-dependent sites' in lines[i]:
-                for j in range(i+1, len(lines)):
-                    if 'site' in lines[j]:
-                        count = count+1
-                    if "}}}" in lines[j]:                        
-                        break   
-                break
+            # if 'mode-dependent sites' in lines[i]:
+            #     for j in range(i+1, len(lines)):
+            #         if 'site' in lines[j]:
+            #             count = count+1
+            #         if "}}}" in lines[j]:                        
+            #             break   
+            #     break
     
     return count
 
@@ -289,3 +293,27 @@ def celltransform(s_mat, p_mat, bv, tm):
     # print()
 
     return sa, sb, sc, sal, sbe, sga
+
+def save_logits_table(data, num_logits, save_logits_path, save_subgroups_path):
+    
+    # === Create the logits table ===
+    logit_dict = {}  # {key: [logit_0, logit_1, ...]}
+    subgroup_dict = {}  # {key: [subgroup_0, subgroup_1, ...]}
+
+    for key in sorted(data.keys()):
+        entry = data[key]
+        logits = entry["logits"]
+        subgroups = [int(sg) for sg in entry["subgroups"]]  # Convert to int
+
+        logit_dict[key] = logits
+        subgroup_dict[key] = subgroups
+
+    # Transpose so that rows are logit_0, logit_1, ..., and columns are keys
+    logit_df = pd.DataFrame(logit_dict, index=[f"logit_{i}" for i in range(num_logits)])
+    subgroup_df = pd.DataFrame(subgroup_dict, index=[f"subgroup_{i}" for i in range(num_logits)])
+
+    # === Save to CSV ===
+    logit_df.to_csv(save_logits_path)
+    subgroup_df.to_csv(save_subgroups_path)
+
+    print(f'Tables saved: \n{save_logits_path} \n{save_subgroups_path}')

@@ -4,7 +4,7 @@ import re
 import os
 
 # === 1. Load JSON data ===
-with open("logit_results.json", "r") as f:
+with open("logit_results_P1_fe2o3.json", "r") as f:
     data = json.load(f)
 
 # === 2. Extract numeric part (e.g. 100 from nom_208518_100-4) ===
@@ -19,7 +19,8 @@ sorted_items = sorted(data.items(), key=lambda item: extract_numeric_id(item[0])
 num_logits = len(next(iter(data.values()))["logits"])  # Assume all entries have same length
 
 # Create output folder
-os.makedirs("logit_plots", exist_ok=True)
+output_folder = "logit_plots"
+os.makedirs(output_folder, exist_ok=True)
 
 for i in range(num_logits):
     x_vals = []
@@ -50,5 +51,5 @@ for i in range(num_logits):
     plt.legend()
 
     # === 6. Save each plot ===
-    plt.savefig(f"logit_plots/logit_{i}_plot.png", dpi=300)
+    plt.savefig(f"{output_folder}/logit_{i}_plot.png", dpi=300)
     plt.close()
