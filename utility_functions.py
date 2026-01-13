@@ -317,3 +317,20 @@ def save_logits_table(data, num_logits, save_logits_path, save_subgroups_path):
     subgroup_df.to_csv(save_subgroups_path)
 
     print(f'Tables saved: \n{save_logits_path} \n{save_subgroups_path}')
+
+
+
+def load_xy(path):
+    """Load two-column XY data robustly. Returns (x, y)."""
+    try:
+        data = np.loadtxt(path)
+    except Exception:
+        raise RuntimeError(f"Failed reading {path}")
+    if data.size == 0:
+        raise RuntimeError(f"No data in {path}")
+    data = np.atleast_2d(data)
+    if data.shape[1] < 2:
+        raise RuntimeError(f"File {path} has fewer than 2 columns")
+    x = data[:, 0]
+    y = data[:, 1]
+    return x, y

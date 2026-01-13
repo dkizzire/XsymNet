@@ -1,0 +1,7 @@
+macro vc_strain { val_on_continue = Rand(-0.01, 0.01); }
+
+macro vc_dist { val_on_continue = Rand(-1.0, 1.0); }
+
+macro vc_dist_fine { val_on_continue = Val*Rand(-0.9, 1.1); }
+
+macro vc_harmonic { val_on_continue = Val*Rand(-0.1, 0.1); }

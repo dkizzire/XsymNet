@@ -1,10 +1,11 @@
+import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
-import numpy as np
 from scipy.ndimage import zoom
+from matplotlib import rcParams
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 
@@ -60,7 +61,17 @@ class MultiheadSelfAttention(nn.Module):
 class CNN_MultiHeadAttention(nn.Module):
     def __init__(self, num_classes, channel_1, channel_2, kernel_1, kernel_2, stride_1, stride_2, num_heads, linear_1):
         super().__init__()
+
+        # --- Make ALL input variables instance attributes ---
         self.num_classes = num_classes
+        self.channel_1   = channel_1
+        self.channel_2   = channel_2
+        self.kernel_1    = kernel_1
+        self.kernel_2    = kernel_2
+        self.stride_1    = stride_1
+        self.stride_2    = stride_2
+        self.num_heads   = num_heads
+        self.linear_1    = linear_1
 
         self.conv1 = nn.Conv1d(1, channel_1, kernel_size=kernel_1, stride=stride_1, padding=kernel_1 // 2, bias=False)
         self.bn1   = nn.BatchNorm1d(channel_1)
@@ -137,8 +148,8 @@ class GradCAM:
     def __init__(self, model, target_layer):
         self.model = model
         self.target_layer = target_layer
-        self.gradients = None
-        self.activations = None
+        self.gradients: torch.Tensor | None = None
+        self.activations: torch.Tensor | None = None
         self.hook_layers()
 
     def hook_layers(self):
@@ -151,12 +162,16 @@ class GradCAM:
         self.target_layer.register_forward_hook(forward_hook)
         self.target_layer.register_full_backward_hook(backward_hook)  # Use full backward hook
 
-    def generate_cam(self, input_tensor, target_class):
+    def generate_cam(self, input_tensor, target_class: int):
         self.model.eval()
         output = self.model(input_tensor)
         self.model.zero_grad()
         class_score = output[:, target_class]
         class_score.backward()
+
+        # --- Safety checks ---
+        assert self.activations is not None, "Activations are None. Did the forward hook run?"
+        assert self.gradients is not None, "Gradients are None. Did the backward hook run?"
 
         print(f"Activations Shape: {self.activations.shape}")  # Debugging
         print(f"Gradients Shape: {self.gradients.shape}")  # Debugging
@@ -169,178 +184,57 @@ class GradCAM:
             cam += pooled_gradients[0, i] * self.activations[0, i]
         
         cam = F.relu(cam)  # Apply ReLU
-        
-        # if cam.ndim < 2:  # If 1D, reshape it
-        #     print(f"Warning: CAM shape {cam.shape}, reshaping to (1, -1)")
-        #     cam = cam.view(1, -1)
-
         cam = cam - cam.min()
         cam = cam / cam.max()
         
         return cam.cpu().numpy()
     
-    # def generate_average_cam(self, input_batch, target_class):
-    #     """
-    #     Generate average CAM over a batch of samples from the same class.
-
-    #     Args:
-    #         input_batch (Tensor): Tensor of shape (N, seq_len), all from the same class.
-    #         target_class (int): The target class index for CAM computation.
-
-    #     Returns:
-    #         avg_cam (np.ndarray): Averaged CAM over all input samples.
-    #     """
-    #     self.model.eval()
-    #     cams = []
-
-    #     for i in range(input_batch.shape[0]):
-    #         input_tensor = input_batch[i:i+1]  # Keep batch dim
-    #         output = self.model(input_tensor)
-    #         self.model.zero_grad()
-
-    #         class_score = output[:, target_class]
-    #         class_score.backward(retain_graph=True)
-
-    #         pooled_gradients = torch.mean(self.gradients, dim=[2])
-    #         cam = torch.zeros_like(self.activations[0, 0])
-    #         for j in range(self.activations.shape[1]):
-    #             cam += pooled_gradients[0, j] * self.activations[0, j]
-
-    #         cam = F.relu(cam)
-    #         cam = cam - cam.min()
-    #         cam = cam / (cam.max() + 1e-8)
-    #         cams.append(cam.cpu().numpy())
-
-    #     avg_cam = np.mean(cams, axis=0)
-    #     return avg_cam
-
-    # def generate_average_cam(self, input_batch, target_class):
-    #     """
-    #     Generate average CAM over a batch of samples from the same class.
-    #     """
-    #     self.model.eval()
-    #     cams = []
-
-    #     for i in range(input_batch.shape[0]):
-    #         input_tensor = input_batch[i:i+1]  # shape: (1, seq_len)
-    #         self.model.zero_grad()
-    #         output = self.model(input_tensor)
-
-    #         # Get scalar class score by summing
-    #         class_score = output[:, target_class].sum()
-    #         class_score.backward(retain_graph=True)
-
-    #         pooled_gradients = torch.mean(self.gradients, dim=[2])
-    #         cam = torch.zeros_like(self.activations[0, 0])
-    #         for j in range(self.activations.shape[1]):
-    #             cam += pooled_gradients[0, j] * self.activations[0, j]
-
-    #         cam = F.relu(cam)
-    #         cam = cam - cam.min()
-    #         cam = cam / (cam.max() + 1e-8)
-    #         cams.append(cam.cpu().numpy())
-
-    #     avg_cam = np.mean(cams, axis=0)
-    #     return avg_cam
-
     def generate_average_cam(self, input_batch, target_class):
         """
-        Generate average CAM over a batch of samples from the same class,
-        in one forward/backward pass (faster than looping).
+        Generate average CAM over a batch of samples from the same class.
+
+        Args:
+            input_batch (Tensor): Tensor of shape (N, seq_len), all from the same class.
+            target_class (int): The target class index for CAM computation.
+
+        Returns:
+            avg_cam (np.ndarray): Averaged CAM over all input samples.
         """
         self.model.eval()
-        self.model.zero_grad()
+        cams = []
 
-        # Forward pass (entire batch at once)
-        output = self.model(input_batch)  # shape: (batch_size, num_classes)
+        for i in range(input_batch.shape[0]):
+            input_tensor = input_batch[i:i+1]  # Keep batch dim
+            output = self.model(input_tensor)
+            self.model.zero_grad()
 
-        # Get scalar class score (sum over batch to backpropagate through all samples)
-        class_score = output[:, target_class].sum()
-        class_score.backward(retain_graph=False)  # gradients for all batch items
+            class_score = output[:, target_class]
+            class_score.backward(retain_graph=True)
+            
+            # --- Safety checks ---
+            assert self.activations is not None, "Activations are None. Did the forward hook run?"
+            assert self.gradients is not None, "Gradients are None. Did the backward hook run?"
 
-        # pooled_gradients: average gradient for each channel across batch + sequence
-        # shape: (num_channels,)
-        pooled_gradients = torch.mean(self.gradients, dim=[0, 2])  
+            pooled_gradients = torch.mean(self.gradients, dim=[2])
+            cam = torch.zeros_like(self.activations[0, 0])
+            for j in range(self.activations.shape[1]):
+                cam += pooled_gradients[0, j] * self.activations[0, j]
 
-        # Weight activations with pooled gradients
-        # self.activations shape: (batch_size, num_channels, seq_len)
-        weighted_activations = (pooled_gradients[None, :, None] * self.activations).sum(dim=1)
+            cam = F.relu(cam)
+            cam = cam - cam.min()
+            cam = cam / (cam.max() + 1e-8)
+            cams.append(cam.cpu().numpy())
 
-        # Apply ReLU, normalize each CAM
-        cams = F.relu(weighted_activations)
-        cams = cams - cams.min(dim=1, keepdim=True)[0]
-        cams = cams / (cams.max(dim=1, keepdim=True)[0] + 1e-8)
-
-        # Average CAMs across the batch
-        avg_cam = cams.mean(dim=0).cpu().numpy()  # shape: (seq_len,)
-
+        avg_cam = np.mean(cams, axis=0)
         return avg_cam
-
-
-def plot_cam(xrd_pattern, cam, x_axis=None, x_units='ToF (μs)', save_name="grad_cam_plot.png", title=None, overlay=True, dpi=600):
-
-    # quick x_units for pasting:
-    # 2θ (degrees), ToF (μs), d-spacing (Å)
-
-    cam = cam.squeeze()
-    xrd_pattern = xrd_pattern.squeeze()
-
-    if cam.shape[0] != xrd_pattern.shape[0]:
-        print(f"Resizing CAM from {cam.shape} to {xrd_pattern.shape}")
-        from scipy.ndimage import zoom
-        cam = zoom(cam, zoom=xrd_pattern.shape[0] / cam.shape[0])
-
-    # Normalize CAM for consistent coloring
-    cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
-
-    # Use custom x-axis
-    if x_axis is None:
-        x_axis = np.arange(len(xrd_pattern))
-
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=dpi)  # Set DPI and figsize
-
-    if overlay:
-        # Use LineCollection for smooth color transitions
-        norm = mcolors.Normalize(vmin=0, vmax=1)
-        cmap = plt.cm.jet
-
-        # Create line segments
-        points = np.array([x_axis, xrd_pattern]).T.reshape(-1, 1, 2)
-        segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        lc = LineCollection(segments, cmap=cmap, norm=norm, linewidth=1)  # Set LINE WIDTH
-        lc.set_array(cam)
-
-        ax.add_collection(lc)
-        ax.autoscale()
-
-        # Add colorbar
-        fig.colorbar(lc, ax=ax, label="Activation Intensity")
-
-    else:
-        ax.plot(x_axis, xrd_pattern, label="XRD Pattern", color="black")
-        scatter = ax.scatter(x_axis, xrd_pattern, c=cam, cmap="jet", alpha=0.5)
-        fig.colorbar(scatter, ax=ax, label="Activation Intensity")
-    
-    if title is not None:
-        ax.set_title(title, fontsize=14) 
-    
-    ax.set_xlabel(f'{x_units}', fontsize=12)  
-    ax.set_ylabel("Intensity A.U.", fontsize=12)
-    ax.legend()
-    
-    plt.savefig(save_name, dpi=dpi, bbox_inches='tight')  # High-resolution save
-    plt.show()
 
 
 #^ ------------------------------------------------------------------------------------------------------
 # * Averaged Class Activation Map for specified target class
 #^ ------------------------------------------------------------------------------------------------------   
 
-
-
-
-def plot_avg_cam_with_expt(xrd_expt, avg_cam, x_axis=None, x_units='2θ (degrees)', save_name="avg_cam_plot.png", legend_label= '', title=None):
-    from matplotlib import rcParams
+def plot_avg_cam_with_expt(xrd_expt, avg_cam, x_axis, x_units='2θ (degrees)', save_name="avg_cam_plot.png", legend_label= '', title=None):
+    
     avg_cam = avg_cam.squeeze()
     xrd_expt = xrd_expt.squeeze()
    
@@ -362,23 +256,24 @@ def plot_avg_cam_with_expt(xrd_expt, avg_cam, x_axis=None, x_units='2θ (degrees
     # Resize CAM if necessary
     if avg_cam.shape[0] != xrd_expt.shape[0]:
         print(f"Resizing CAM from {avg_cam.shape} to {xrd_expt.shape}")
-        from scipy.ndimage import zoom
+        
         avg_cam = zoom(avg_cam, zoom=xrd_expt.shape[0] / avg_cam.shape[0])
+        avg_cam = np.asarray(avg_cam)
 
     # Normalize CAM
-    avg_cam = (avg_cam - avg_cam.min()) / (avg_cam.max() + 1e-8)
+    avg_cam = (avg_cam - np.min(avg_cam)) / (np.max(avg_cam) + 1e-8)
 
     # x-axis
-    if x_axis is None:
+    if len(x_axis) == 1:
         x_axis = np.arange(len(xrd_expt))
 
     fig, ax = plt.subplots(figsize=(12, 6), dpi=600)
     
     # Plot CAM as background
-    ax.imshow(avg_cam[np.newaxis, :], extent=[x_axis[0], x_axis[-1], xrd_expt.min(), xrd_expt.max()],
+    ax.imshow(avg_cam[np.newaxis, :], extent=(x_axis[0], x_axis[-1], np.min(xrd_expt), np.max(xrd_expt)),
               cmap='jet', aspect='auto', alpha=0.8, origin='lower', vmin=avg_cam.min(), vmax=avg_cam.max())
 
-    # Plot experimental XRD as white line
+    # Plot experimental XRD as black line
     ax.plot(x_axis, xrd_expt, color='black', linewidth=1.5, label=legend_label)
 
     if title:

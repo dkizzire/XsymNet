@@ -10,11 +10,12 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    material_name = 'pzt90'
+    material_name = 'bso'
     diffraction_type = 'neutron'   # choices: neutron or xray
-    instrument_file = 'powgen_refine.txt'
-    peakshape_file = 'powgen_peak_type.txt'
+    instrument_file = 'hrpd.txt'
+    peakshape_file = 'hrpd_peak_type.txt'
     sub_folder_1 = 'Rietveld_top_5'
+    phase_name = 'alpha'
     
     use_vc_macro = False
     path_to_topas_directory = r'C:\TOPAS6'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
@@ -22,7 +23,7 @@ def main():
     # use selected subgroups
     use_only_selected_subgroups = True
     if use_only_selected_subgroups:
-        selected_subgroups = ['0019', '0025', '0009', '0024', '0028']
+        selected_subgroups = ['0093', '0031', '0029', '0088', '0089']
     else:
         selected_subgroups = ['*']
 
@@ -34,7 +35,7 @@ def main():
 
 
     #^ EXPERIMENTAL XY FILE to use for xdd section of TOPAS when creating randomstates
-    experimental_data_file = f'PZT_90_300_k.xye'
+    experimental_data_file = f'Hrp27190_bs.xye'
     experimental_data_path = os.path.join(cwd, material_name, experimental_data_file)
     assert os.path.exists(experimental_data_path), f'Error: {experimental_data_path} does not exist. Please check the path to your experimental data file.'
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
@@ -42,7 +43,7 @@ def main():
     #^ CUSTOM MACROS FILE (appended to bottom of input files)
     use_custom_macros = True
     if use_custom_macros:
-        custom_macros_file = 'powgen_macros.txt'
+        custom_macros_file = 'hrpd_macros.txt'
         custom_macro_path = os.path.join(cwd, 'instrument_parameters', custom_macros_file) 
         assert os.path.exists(custom_macro_path), f'Error: {custom_macro_path} does not exist. Please check the path to your custom macros file.'
         custom_macros = funcs.instrument_parameters(custom_macro_path)
@@ -60,10 +61,10 @@ def main():
         pre_xdd_lines = '\n'
 
     beq_dict = {
-        'Pb1': [0.0, 1.0],
-        'Zr1': [0.0, 1.0],
-        'Ti1': [0.0, 1.0], 
-        'O1':  [0.0, 1.0]
+        'Bi1': [0.0, 1.0],
+        'Sn1': [0.0, 1.0],
+        'O1': [0.0, 1.0], 
+        'O2': [0.0, 1.0]
     }
 
     ''' 
@@ -151,7 +152,7 @@ def main():
             random_strain = random_strain.flatten()
 
         # input file to write
-        topas_input_path = os.path.join(cwd, material_name, sub_folder_1) 
+        topas_input_path = os.path.join(cwd, material_name, sub_folder_1, phase_name) 
         if not os.path.exists(topas_input_path): os.makedirs(topas_input_path)
         topas_input_file = os.path.join(topas_input_path, f'{material_name}_{subgroup_nums[i]}.inp')
         topas_input_winpath = PureWindowsPath(Path(topas_input_file).absolute())
@@ -209,7 +210,7 @@ def main():
         for i in range(len(input_winpath_list)):
             f.write(f'tc {input_winpath_list[i]} \n')
 
-    print(f'\nWrote {len(str_files)} TOPAS Rietveld refinement input files to {os.path.join(cwd, material_name, sub_folder_1)}\n')
+    print(f'\nWrote {len(str_files)} TOPAS Rietveld refinement input files to {os.path.join(cwd, material_name, sub_folder_1, phase_name)}\n')
     print(f'\nWrote batchfile to run all refinements to {batchfile_path}\n')
 
 if __name__ == "__main__":

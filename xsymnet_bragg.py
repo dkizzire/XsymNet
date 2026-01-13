@@ -89,13 +89,16 @@ cam_legend_label = r'WO$_{3} 1043 K$'  # legend label for CAM plot
 # ground_truth_cif = '0009' # pzt_90
 
 
-#^ convert diffraction xy to tensor (.pt)
-for i in range(len(experimental_files)):    
-    if experimental_files[i][-3:] != '.pt':
-        converted_expt_data, expt_x_axis = util.convert_bragg_to_tensors(os.path.join(cwd, material_name, 'experimental_p1s', experimental_files[i]))
-        new_filename = f'{os.path.splitext(experimental_files[i])[0]}.pt'
-        torch.save(converted_expt_data, os.path.join(cwd, material_name, 'experimental_p1s', new_filename))
-        experimental_files[i] = new_filename
+expt_data = []
+for i in range(len(experimental_files)):
+    expt_filepath = os.path.join(cwd, material_name, 'experimental_xy', experimental_files[i])
+    expt_x_axis, y_data = funcs.load_xy_data(expt_filepath)
+    expt_data.append(y_data)
+
+if len(expt_data) > 1:
+    expt_data = torch.vstack(expt_data)
+else:
+    expt_data = expt_data[0]
 
 
 
@@ -110,14 +113,6 @@ number_of_classes = len(data_files)
 first_file = torch.load(data_files[0])
 number_of_random_states = first_file.size()[0]
 number_for_testing = int(number_of_random_states*percent_for_testing)
-
-
-#^ load experimental data
-expt_data = [torch.load(f) for f in experimental_files]
-if len(expt_data) > 1:
-    expt_data = torch.vstack(expt_data)
-else:
-    expt_data = expt_data[0]
 
 
 #^ split data into training and testing sets & create labels

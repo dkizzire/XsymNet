@@ -13,8 +13,13 @@ __pycache__/
 /wo3
 /fe2o3
 /malcolm
+/pto
+/accessory_scripts
 
 sshproxy.sh
 /lxs
 /logit_plots*
 NOTES_FROM_JOHN_EVANS_MEETING.txt
+
+*.ini
+XsymNet.code-workspace

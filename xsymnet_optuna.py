@@ -23,7 +23,7 @@ cwd = os.getcwd()
 #============================================================================================
 
 # Set available GPUs
-# selected_gpus = [0, 1, 2, 3] #, 4, 5, 6, 7]
+# selected_gpus = [0, 1, 2, 3] # , 4, 5, 6, 7]
 selected_gpus = [7] 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, selected_gpus))

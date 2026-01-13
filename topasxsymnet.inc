@@ -403,28 +403,17 @@ macro POWGEN_instrument
 
     gauss_fwhm = Sqrt((0,sig0 + sig1 * D_spacing^2 + sig2 * D_spacing^4)^2);
     lor_fwhm = Sqrt((0, gam0 + gam1 * D_spacing + gam2 * D_spacing^2)^2); 
-    'local sig0 -17.17949_0.47202
-    'local sig1  79.48367_0.64650
-    'local sig2 -2.15029_0.17308 
-    'local gam0 -8.39399_3.15677 
-    'local gam1 -23.64600_3.15677
-    'local gam2  4.76909_3.15677 
+
 } 
 
 
 macro POWGEN_instrument_2    
 {
-    ' macro using GSAS-style sigmas and gammas for pseudo-Voigt function. Add lines with local parameters to each dataset
+    ' macro using GSAS-style sigmas and gammas for pseudo-Voigt function.
 
     gauss_fwhm = Sqrt((sig0 + sig1 * D_spacing^2 + sig2 * D_spacing^4 + sig3/D_spacing^2)^2);
     lor_fwhm = Sqrt((gam0 + gam1 * D_spacing + gam2 * D_spacing^2)^2); 
-    'local sig0 -17.17949_0.47202
-    'local sig1  79.48367_0.64650
-    'local sig2 -2.15029_0.17308 
-    'local gam0 -8.39399_3.15677 
-    'local gam1 -23.64600_3.15677
-    'local gam2  4.76909_3.15677 
-    'local sig3  1
+
 }
 
 
