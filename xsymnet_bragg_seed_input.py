@@ -60,7 +60,9 @@ os.environ["PYTORCH_CUDA_FUSED_ATTENTION"] = "0"
 os.environ["FLASH_ATTENTION"] = "0"
 
 # Choose which physical GPUs to use, then remap them to logical [0..N-1]
-selected_gpus = [1, 2, 3, 4]  # change to [1,2] etc., as needed
+# selected_gpus = [1, 2, 3, 5]  # change to [1,2] etc., as needed
+selected_gpus = [0, 1, 2, 3]  # change to [1,2] etc., as needed
+# selected_gpus = [6, 7]  # change to [1,2] etc., as needed
 os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, selected_gpus))
 
 
@@ -138,7 +140,8 @@ phase_name = config_dict.get('phase_name', 'not_specified')
 max_epochs = config_dict.get('max_epochs', 100)
 training_batchsize = config_dict.get('training_batchsize', 1024)
 scheduler_milestones = config_dict.get('scheduler_milestones', [30, 100, 150])
-patience = config_dict.get('patience', 6)
+scheduler_patience = config_dict.get('scheduler_patience', 5)   # patience before reducing LR
+early_stop_patience = config_dict.get('early_stop_patience', 12)  # Total patience before breaking
 
 #* Slice data to region of interest
 #70  #661 #TOF 23750 for NVPF  ...... # 1181 TOF 36000  for PZT_90  ....... TOF 60000 i=5390 for BSO & 3542
@@ -175,7 +178,7 @@ if isinstance(experimental_files, str):
 # experimental_files = sorted(glob.glob(os.path.join(cwd, material_name, 'experimental_xy', 'bso_alpha_P1_trunc_je_xy.xy')))
 # experimental_files = sorted(glob.glob(os.path.join(cwd, material_name, 'experimental_xy', 'alpha_exp_NEW_xy.xy')))
 # experimental_files = sorted(glob.glob(os.path.join(cwd, material_name, 'experimental_xy', 'pzt90_exp_xy.xy')))
-assert experimental_files, f"Experimental file(s) not found in {os.path.join(cwd, material_name, 'experimental_xy')} \n --> Check path and file name. <--"
+assert experimental_files, f"Experimental file(s) not found in {experimental_files} \n --> Check path and file name. <--"
 experimental_names = [os.path.splitext(os.path.basename(f))[0] for f in experimental_files]
 
 #* Warmstart Control
@@ -184,7 +187,7 @@ warmstart_path = config_dict.get('warmstart_path', f'/netdisk/dx6/saved_models/{
 
 #* Load Pretrained Model Control
 load_pretrained_model = config_dict.get('load_pretrained_model', False)
-pretrain_path = config_dict.get('pretrian_path', f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_seed_42_c816.pt')
+pretrain_path = config_dict.get('pretrain_path', f'/netdisk/dx6/saved_models/{material_name}_{phase_name}_seed_42_c816.pt')
 # pretrain_path = f'/netdisk/dx6/saved_models/bso_alpha_e150_paper_01.pt'
 
 #* Create CAM Control
@@ -223,8 +226,12 @@ else:
 #=======================================================================================================
 
 #^ Load training and testing data as tensors 
-data_folder = os.path.join(cwd, material_name, 'ml_data', phase_name)
-data_files = sorted(glob.glob(os.path.join(data_folder, '*.pt')))
+# data_folder = os.path.join(cwd, material_name, 'ml_data', phase_name)
+# data_files = sorted(glob.glob(os.path.join(data_folder, '*.pt')))
+
+data_path = config_dict.get('train_data_dir', 'INCORRECTLY_SPECIFIED')
+data_files = sorted(glob.glob(os.path.join(data_path, '*.pt')))
+assert len(data_files) > 0, f"Training/Testing data file(s) not found in {data_path} \n --> Check path and file name. <--"
 num_classes = len(data_files)
 
 #^ Build class-index -> subgroup-id mapping from ml_data filenames
@@ -246,7 +253,14 @@ first_file = torch.load(data_files[0])
 number_of_random_states = first_file.size()[0]
 number_for_testing = int(number_of_random_states*percent_for_testing)
 
-X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.train_test_split(data_folder, number_of_random_states, number_for_testing)
+# n_training = config_dict.get('n_training', 0) # only for samples per subgroup testing to keep same number of validation data throughout tests
+# n_testing = config_dict.get('n_testing', 0) # only for samples per subgroup testing to keep same number of validation data throughout tests
+
+X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.train_test_split(data_path, number_of_random_states, number_for_testing)
+# X_train_unscaled, X_test_unscaled, y_train, y_test = funcs.train_test_split_number(data_path, number_of_random_states, n_training, n_testing) # only for samples per subgroup testing to keep same number of validation data throughout tests
+
+if data_end_index == -1:
+    data_end_index = X_train_unscaled.shape[1]+1
 
 #^ slice training, testing, expt data to region of interest
 X_train_unscaled = X_train_unscaled[:, data_start_index:data_end_index]
@@ -264,20 +278,37 @@ print('Unscaled training, testing, and experimental data.\n')
 print(f'X_train MAX:{torch.max(X_train_unscaled):.2f}\nX_train MIN:{torch.min(X_train_unscaled):.2f}\n')
 print(f'X_test  MAX:{torch.max(X_test_unscaled):.2f}\nX_test  MIN:{torch.min(X_test_unscaled):.2f}\n')
 print(f'X_expt  MAX:{torch.max(X_expt_unscaled):.2f}\nX_expt  MIN:{torch.min(X_expt_unscaled):.2f}\n\n')
+print(f'X_train shape: {X_train_unscaled.shape}\nX_test shape: {X_test_unscaled.shape}\nX_expt shape: {X_expt_unscaled.shape}\n')
 
 #============================================================================================
 #* Scale data
 #============================================================================================
 scale_data = 100
 
+
+expt_scale = config_dict.get('expt_scale_factor', 1.0)
+
 X_train = X_train_unscaled
-X_test  = X_test_unscaled
-X_expt  = X_expt_unscaled
+X_test  = X_test_unscaled 
+X_expt  = X_expt_unscaled * expt_scale
 
 if scaling_method == 'MinMax2d':
     X_train, X_test, X_expt = funcs.MinMaxScale_2d(X_train, X_test, X_expt, scale=scale_data)
+    
 if scaling_method == 'MaxAbs':
     X_train, X_test, X_expt = funcs.MaxAbsScale(X_train, X_test, X_expt)
+    X_train = X_train * scale_data
+    X_test = X_test * scale_data
+    X_expt = X_expt * scale_data
+
+if scaling_method == 'Sqrt':
+    X_train, X_test, X_expt = funcs.sqrt_scale_diffraction(X_train, X_test, X_expt)
+
+xexpt_save = X_expt.squeeze()
+xexpt_filename = os.path.join(cwd, material_name, f'X_expt_maxabs_{material_name}_{phase_name}_expt_1123K.xy')
+with open(xexpt_filename, 'w') as f:
+    for i in range(xexpt_save.shape[0]):
+        f.write(f"{expt_x_axis[i]:.4f} {xexpt_save[i]:.6f}\n")
 
 
 def zscore_per_pattern(t, eps=1e-8):
@@ -350,16 +381,36 @@ val_loader = DataLoader(test_data, batch_size=training_batchsize, shuffle=False)
 # model = xsym.CNN_bragg(num_classes=num_classes)
 # model = xsym.CNN_GlobalSelfAttention(num_classes=num_classes)
 # model = xsym.CNN_LocalAttention(num_classes=num_classes)
+
+# channel_1 = 8
+# channel_2 = 16
+# kernel_1 = 31
+# kernel_2 = 31
+# stride_1 = 2
+# stride_2 = 2
+# num_heads = 8
+# linear_1 = 1024
+
+channel_1 = 16
+channel_2 = 64
+kernel_1 = 31
+kernel_2 = 7
+stride_1 = 2
+stride_2 = 1
+num_heads = 4
+linear_1 = 1024
+
+
 model = xsym.CNN_MultiHeadAttention(
     num_classes=num_classes,
-    channel_1=8,
-    channel_2=16,
-    kernel_1=31,
-    kernel_2=31,
-    stride_1=2,
-    stride_2=2,
-    num_heads=8,
-    linear_1=1024
+    channel_1=channel_1,
+    channel_2=channel_2,
+    kernel_1=kernel_1,
+    kernel_2=kernel_2,
+    stride_1=stride_1,
+    stride_2=stride_2,
+    num_heads=num_heads,
+    linear_1=linear_1
 )
 
 # attention embedding dim must be divisible by num_heads
@@ -386,9 +437,14 @@ model.eval()
 #* Load Pretrained Model
 if load_pretrained_model:
     checkpoint = torch.load(pretrain_path, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"], strict=True)
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    model.load_state_dict(checkpoint, strict=True)
+    # optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
+# #* Load Pretrained Model
+# if load_pretrained_model:
+#     checkpoint = torch.load(pretrain_path, map_location=device)
+#     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
+#     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 #* Warmstart Model
 if warmstart_model:
@@ -406,6 +462,7 @@ if torch.cuda.device_count() > 1:
     model = nn.DataParallel(model, device_ids=logical_gpus)
 
 # Move model to device again to ensure it's properly placed
+scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=scheduler_patience, min_lr=1e-5)
 model.to(device)
 # print(model)
 
@@ -415,9 +472,9 @@ model.to(device)
 epochs_completed = 0 
 # Training loop with early stopping
 if train_model == True:
+    best_val_loss = float('inf')
     best_val_acc = 0
-    counter = 0
-    lr_counter = 0
+    stop_counter = 0
 
     
     for epoch in range(max_epochs):
@@ -434,15 +491,17 @@ if train_model == True:
             loss = criterion(preds, labels)
             loss.backward()
             optimizer.step()
-            running_loss += loss.item()
-        
+            running_loss += loss.item() * inputs.size(0)
+            tr_total += labels.size(0)
+
             # Top-1, Top-3, Top-5 training accuracy (for monitoring)
             tr_correct1 += (preds.argmax(1) == labels).sum().item()
             tr_correct3 += (preds.topk(3, dim=1).indices == labels.unsqueeze(1)).any(dim=1).sum().item()
             tr_correct5 += (preds.topk(5, dim=1).indices == labels.unsqueeze(1)).any(dim=1).sum().item()
-            tr_total += labels.size(0)
 
-        # scheduler.step()
+        avg_tr_loss = running_loss / tr_total
+        tr_acc1 = tr_correct1 / tr_total
+        
 
         # ------------------ Validation ------------------
         model.eval()
@@ -455,7 +514,7 @@ if train_model == True:
                 inputs, labels = inputs.to(device), labels.to(device)
                 preds = model(inputs)
                 val_loss = criterion(preds, labels)
-                val_running_loss += val_loss.item()
+                val_running_loss += val_loss.item() * inputs.size(0)
 
                 # Top-1, Top-3, Top-5 validation accuracy
                 val_correct1 += (preds.argmax(1) == labels).sum().item()
@@ -469,6 +528,13 @@ if train_model == True:
         val_acc1 = val_correct1 / val_total
         val_acc3 = val_correct3 / val_total
         val_acc5 = val_correct5 / val_total
+        avg_val_loss = val_running_loss / val_total
+        # scheduler.step(val_acc1)
+        previous_lr = optimizer.param_groups[0]['lr']
+        scheduler.step(avg_val_loss)
+        current_lr = optimizer.param_groups[0]['lr']
+        if current_lr < previous_lr:
+            print(f"\n[Scheduler] Learning rate reduced from {previous_lr:.1e} to {current_lr:.1e}")
 
         # Compute F1 scores
         f1_macro = f1_score(all_labels, all_preds, average='macro')
@@ -477,49 +543,82 @@ if train_model == True:
 
         # print(f'Epoch {epoch+1}: Top-1 Acc: {val_acc1:.2f}, Top-3 Acc: {val_acc3:.2f}, Top-5 Acc: {val_acc5:.2f}, Tr-Loss: {running_loss/len(train_loader):.4f}, Val-Loss: {val_running_loss/len(val_loader):.4f}')
         print(
-        f"Epoch {epoch+1}: \n"
+        f"Epoch {epoch}: \n"
         f"Top-1, 3, 5 Acc: {val_acc1:.2f}, {val_acc3:.2f}, {val_acc5:.2f}\n"
         f"F1_macro: {f1_macro:.3f}, "
-        f"Tr-Loss: {running_loss/len(train_loader):.4f}, "
-        f"Val-Loss: {val_running_loss/len(val_loader):.4f}\n"
+        f"Tr-Loss: {avg_tr_loss:.4f}, "
+        f"Val-Loss: {avg_val_loss:.4f}\n"
         )
-        # f"Precision: {precision:.3f}, Recall: {recall:.3f}, F1_micro: {f1_micro:.3f}\n"
-        # Early stopping
-        if val_acc1 > best_val_acc:
-            best_val_acc = val_acc1
-            counter = 0
+
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            stop_counter = 0
+            # torch.save(model.state_dict(), path_to_save_model)
+            # Check if model is DataParallel, if so, save model.module
+            state_dict = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
+            torch.save(state_dict, path_to_save_model)
+
+            print(f"Epoch {epoch}: New best loss {avg_val_loss:.4f}. Saved model.\n")
         else:
-            counter += 1
-            lr_counter +=1
-            if lr_counter == int(0.5*patience):
-                new_learning_rate = learning_rate*0.1
-                print(f'\nDecreasing LR: {learning_rate} --> {new_learning_rate}')
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = new_learning_rate
-                
-            if counter >= patience:
-                break
+            stop_counter += 1
+            print(f"Epoch {epoch}: No improvement. Stop counter: {stop_counter}/{early_stop_patience}\n")
+            
+        if stop_counter >= early_stop_patience:
+            print("Early stopping triggered.\n")
+            break
 
-    #!============================================================================================
-    #* Save the model and optimizer
-    #!============================================================================================
-    # Save Model
-    model.eval()
-    model_save_dict = OrderedDict()
-    if isinstance(model, nn.DataParallel):
-        model_save_dict['model_state_dict'] = model.module.state_dict()
-    else:
-        model_save_dict['model_state_dict'] = model.state_dict()
-    
-    model_save_dict['optimizer_state_dict'] = optimizer.state_dict()
-    model_save_dict['epoch'] = epochs_completed
+        # if val_acc1 > best_val_acc:
+        #     best_val_acc = val_acc1
+        #     stop_counter = 0
+        #     # torch.save(model.state_dict(), path_to_save_model)
+        #     # Check if model is DataParallel, if so, save model.module
+        #     state_dict = model.module.state_dict() if isinstance(model, nn.DataParallel) else model.state_dict()
+        #     torch.save(state_dict, path_to_save_model)
 
-    if save_model:
-        torch.save(model_save_dict, path_to_save_model)
+        #     print(f"Epoch {epoch}: New best accuracy {val_acc1:.4f}. Saved model.")
+        # else:
+        #     stop_counter += 1
+        #     print(f"Epoch {epoch}: No improvement. Stop counter: {stop_counter}/{early_stop_patience}")
+            
+        # if stop_counter >= early_stop_patience:
+        #     print("Early stopping triggered.")
+        #     break
 
-
-
+# ============================================================================================
 #^ Run Validation
+# ============================================================================================
+print("\nRunning validation on test set...")
+
+if train_model or load_pretrained_model:
+    if not load_pretrained_model:
+        # Re-initialize model for evaluation with best weights
+        model = xsym.CNN_MultiHeadAttention(
+            num_classes=num_classes,
+            channel_1=channel_1,
+            channel_2=channel_2,
+            kernel_1=kernel_1,
+            kernel_2=kernel_2,
+            stride_1=stride_1,
+            stride_2=stride_2,
+            num_heads=num_heads,
+            linear_1=linear_1
+        )
+        model.to(device)
+        # Ensure the model is properly initialized before wrapping in DataParallel
+        model.eval()
+        dummy_input = torch.randn(1, X_train.shape[1]).to(device)
+        model(dummy_input)  # Run a forward pass to initialize lazy layers
+        # load best model weights
+        state_dict = torch.load(path_to_save_model, map_location=device)
+        model.load_state_dict(state_dict)
+        model.eval()
+        #* Wrap in DataParallel if multiple GPUs are available
+        if torch.cuda.device_count() > 1:
+            print(f"\nUsing {torch.cuda.device_count()} GPUs!\n")
+            model = nn.DataParallel(model, device_ids=logical_gpus)
+            model.to(device)
+
+
 number_of_top_results = min(10, num_classes)
 total = 0
 correct_top_k = torch.zeros(number_of_top_results, device=device)  # Store counts for Top-1 to Top-k
@@ -528,11 +627,26 @@ correct_top_k = torch.zeros(number_of_top_results, device=device)  # Store count
 misclassified_counts = defaultdict(int)
 
 with torch.no_grad():
+    val_running_loss = 0.0
+    val_correct1 = val_correct3 = val_correct5 = val_total = 0
+    all_preds, all_labels = [], []
     for inputs, labels in val_loader:
         model.eval()
         inputs, labels = inputs.to(device), labels.to(device)
         predicted = model(inputs)
         total += labels.size(0)
+        val_loss = criterion(predicted, labels)
+        val_running_loss += val_loss.item() * inputs.size(0)
+
+        # Top-1, Top-3, Top-5 validation accuracy
+        val_correct1 += (predicted.argmax(1) == labels).sum().item()
+        val_correct3 += (predicted.topk(3, dim=1).indices == labels.unsqueeze(1)).any(dim=1).sum().item()
+        val_correct5 += (predicted.topk(5, dim=1).indices == labels.unsqueeze(1)).any(dim=1).sum().item()
+        val_total += labels.size(0)
+
+        all_preds.extend(predicted.argmax(1).cpu().numpy())
+        all_labels.extend(labels.cpu().numpy())
+        
         # Get top-k predictions
         top_k_vals, top_k_indices = torch.topk(predicted, number_of_top_results, dim=1)  # (values, indices)
         
@@ -548,8 +662,20 @@ with torch.no_grad():
             label = labels[i].item()  # Convert label tensor to int
             if not correct_matrix[i].any():  # If correct label is not in top-10
                 misclassified_counts[label] += 1  # Increment count for this label
+    
+# Compute F1 scores
+f1_macro = f1_score(all_labels, all_preds, average='macro')
+precision, recall, f1_micro, _ = precision_recall_fscore_support(all_labels, all_preds, average='micro')
 
-
+val_acc1 = val_correct1 / val_total
+val_acc3 = val_correct3 / val_total
+val_acc5 = val_correct5 / val_total
+avg_val_loss = val_running_loss / val_total
+print(
+f"Validation Results: \n"
+f"Top-1, 3, 5 Acc: {val_acc1:.2f}, {val_acc3:.2f}, {val_acc5:.2f}\n"
+f"Val-Loss: {avg_val_loss:.4f}\n"
+)
 # Print Top-k Accuracy
 print("\nTop-k Accuracy:")
 validation_list = []
@@ -562,6 +688,7 @@ print()
 t1 = time.time()
 runtime = f'Runtime: {(t1-t0)/60} minutes'
 print(runtime)
+
 # Print misclassification summary
 # print("\nMisclassification Summary (Labels not in Top 10):")
 # for label, count in misclassified_counts.items():
@@ -580,7 +707,6 @@ print()
 t1 = time.time()
 runtime = f'Runtime: {(t1-t0)/60} minutes'
 print(runtime)
-
 
 # #============================================================================================
 # #* Run XsymNet against experimental data
@@ -672,7 +798,7 @@ if classify_experiment == True:
         f.write(f'\nModel Information:\n')
         f.write(f'epochs_completed: {epochs_completed}\n')
         f.write(f'Training Batch Size: {training_batchsize}\n')
-        f.write(f'Training Data: {data_folder}\n')
+        f.write(f'Training Data: {data_path}\n')
         f.write(f'Data Start/End Indices: {data_start_index} to {data_end_index}\n')
         f.write(f'MinMax2d Scale Factor: {scale_data}\n')
         f.write(f'Saved Model: {path_to_save_model}\n')
@@ -734,14 +860,21 @@ if create_cam:
 
         # Subset training data for target class (e.g., class 5)
         input_batch = cam_data_scaled  # shape: (N, seq_len)
-        target_class = label_mapper.get(tsg)  # Convert subgroup name to label index
+        target_class = subgroup_to_label.get(tsg)  # Convert subgroup name to label index
 
         cam_save_name = f'{cam_save_basename}_{tsg}.png'
 
         # Compute average CAM
         avg_cam = grad_cam.generate_average_cam(input_batch, target_class)
         # Plot over experimental pattern
-        xsym.plot_avg_cam_with_expt(xrd_expt=X_expt.cpu().numpy(), 
+        # xsym.plot_avg_cam_with_expt(xrd_expt=X_expt.cpu().numpy(), 
+        #                             avg_cam=avg_cam, 
+        #                             x_axis=expt_x_axis, 
+        #                             x_units = cam_x_units_label, 
+        #                             save_name= cam_save_name, 
+        #                             legend_label = cam_legend_label)
+        
+        xsym.plot_avg_cam_with_expt_zoom_in(xrd_expt=X_expt.cpu().numpy(), 
                                     avg_cam=avg_cam, 
                                     x_axis=expt_x_axis, 
                                     x_units = cam_x_units_label, 

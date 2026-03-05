@@ -8,6 +8,7 @@ __pycache__/
 /pzt_45
 /pzt_90
 /pzt90_0p05
+/bfo
 
 /pzt90
 /wo3
@@ -22,4 +23,17 @@ sshproxy.sh
 NOTES_FROM_JOHN_EVANS_MEETING.txt
 
 *.ini
+*.png
+
+attn_input_length.py
+convert_2theta_to_ToF.py
+IDA_opt_hkl.py
+JUST_MATH.py
+xsymnet_bragg_seed_input_bkup.py
+xsymnet_classes_bkup.py
+
+
+
+
+
 XsymNet.code-workspace

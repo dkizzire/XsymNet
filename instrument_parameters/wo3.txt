@@ -2,8 +2,7 @@
     finish_X 90
     x_calculation_step = Yobs_dx_at(Xo); 
 	convolution_step 4
-    bkg @  273.055592` -140.524684`  81.8445548` -53.5163872`  20.3551445` -13.5153803` -21.2124162`
-    'd8 Lynx Eye Cu Ka1/a2 2 line emission
+    bkg   196.813543 -43.6029412  4.28505189 -2.3883534 -1.41420164 -0.118655283 -24.5275981    'd8 Lynx Eye Cu Ka1/a2 2 line emission
     LP_Factor(!th2_monochromator, 0)
     CuKa2(0.0001)
-    Specimen_Displacement(height, -0.03469`) 
+    Specimen_Displacement(height, -0.02586`) 

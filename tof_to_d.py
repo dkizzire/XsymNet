@@ -17,8 +17,13 @@ def d2tof(d, tzero, difa, difc):
     tof = (difa * d**2) + (difc * d) + tzero
     return tof
 
+def twoTheta_to_d(twoTheta, wavelength):
+    d = wavelength / (2 * math.sin(math.radians(twoTheta/2)))
+    return d
+
+
 # read in xy file, find closest x to desired tof, return index
-def find_closest_tof(xy_file, desired_tof, snip_name = '_snipped'):
+def find_closest_tof(xy_file, desired_tof, snip_name = '_snipped', create_snipped_data = False):
     #remove comments and blank lines from xy file
     data_check = ('-','0','1','2','3','4','5','6','7','8','9')
     with open(xy_file, 'r') as f:    
@@ -36,14 +41,17 @@ def find_closest_tof(xy_file, desired_tof, snip_name = '_snipped'):
     x = data[:,0]
     y = data[:,1]
     index = (numpy.abs(x - desired_tof)).argmin()
+    
     # remove values before index
-    snip_x = x[index:]
-    snip_y = y[index:]
-    snip_xy_file = new_xy_file.replace('_dataonly', snip_name)
-    with open(snip_xy_file, 'w') as f:
-        for i in range(len(snip_x)):
-            f.write(f'{snip_x[i]:.3f} {snip_y[i]:.6f}\n')
-    print(f'Wrote snipped xy file without comments or blank lines: {snip_xy_file}')
+    if create_snipped_data:
+        snip_x = x[index:]
+        snip_y = y[index:]
+        snip_xy_file = new_xy_file.replace('_dataonly', snip_name)
+        with open(snip_xy_file, 'w') as f:
+            for i in range(len(snip_x)):
+                f.write(f'{snip_x[i]:.3f} {snip_y[i]:.6f}\n')
+        print(f'Wrote snipped xy file without comments or blank lines: {snip_xy_file}')
+
     return index, x[index], y[index]
 
 tof = 60000

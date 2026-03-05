@@ -1,9 +1,9 @@
-    start_X 35000
-    'start_X 60000
+    start_X 48248  'dmin = 1.0 Angstrom
     finish_X 121000
-    local !neutron 1 local !xray 0 
+
     neutron_data
-    TOF_x_axis_calibration(t0_hrpd_bs, 24.28584`,!difc_hrpd_bs, 48255.09936_0.61297, difa_hrpd_bs, -25.44401`)
+    'TOF_x_axis_calibration(t0_hrpd_bs, 24.28584`,!difc_hrpd_bs, 48255.09936_0.61297, difa_hrpd_bs, -25.44401`)
+    TOF_x_axis_calibration(!t0_hrpd_bs, 2.00496, !difc_hrpd_bs, 48255.09936, !difa_hrpd_bs, -3.22266) 'JE beta
     local !bank_two_theta 168.567 
     local !mu  0.07076 
     local !fixb  0.0 min -10 max 10 

@@ -10,40 +10,42 @@ def main():
     # ------------------------------------------------------------------------------------------------------
     # START OF USER INPUT
     # ------------------------------------------------------------------------------------------------------
-    material_name = 'bso'
-    diffraction_type = 'neutron'   # choices: neutron or xray
-    instrument_file = 'hrpd.txt'
-    peakshape_file = 'hrpd_peak_type.txt'
-    sub_folder_1 = 'Rietveld_top_5'
-    phase_name = 'alpha'
+    material_name = 'wo3'
+    phase_name = '1123K_feature'
+    diffraction_type = 'xray'   # choices: neutron or xray
+    instrument_file = 'wo3.txt'
+    peakshape_file = 'wo3_peak_type.txt'
+    sub_folder_1 = 'Rietveld_top_5_new'
     
-    use_vc_macro = False
-    path_to_topas_directory = r'C:\TOPAS6'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
+
+    path_to_topas_directory = r'C:\TOPAS7'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
 
     # use selected subgroups
     use_only_selected_subgroups = True
     if use_only_selected_subgroups:
-        selected_subgroups = ['0093', '0031', '0029', '0088', '0089']
+        # selected_subgroups = ['0032', '0067', '0046', '0045', '0037']
+        selected_subgroups = ['0032', '0037', '0067', '0045', '0046']
     else:
         selected_subgroups = ['*']
 
     # strain mode or custom latparam refinement
     use_strain_modes = True
-    random_strain_bounds = [-0.002, 0.002]          #^ USED if using strain modes default -> [-0.001, 0.001]  ::NOTE:: tiny changes here make a BIG difference in lattice parameter
-    # when not using strain modes, use the custom_latparam_bounds below
-    custom_latparam_bounds = [[-0.1, -0.05], [-0.1, 0.1], [0.1, 0.2], [-1, 1], [-1, 1], [-1, 1]] # custom lats for PZT90
+    random_strain_bounds = [-0.002, 0.002]          #^ USED if using strain modes default -> [-0.005, 0.005]  ::NOTE:: tiny changes here make a BIG difference in lattice parameter
+    # when not using strain modes, use the custom_latparam_bounds below for ranges of random sampling around lattice parameters found in topas str file
+    # custom_latparam_bounds = [[-0.1, -0.05], [-0.1, 0.1], [0.1, 0.2], [-1, 1], [-1, 1], [-1, 1]] 
+    custom_latparam_bounds = [[-0.1, 0.1], [-0.1, 0.1], [0.1, 0.2], [-1, 1], [-1, 1], [-1, 1]] # custom lats for PZT90
 
 
     #^ EXPERIMENTAL XY FILE to use for xdd section of TOPAS when creating randomstates
-    experimental_data_file = f'Hrp27190_bs.xye'
+    experimental_data_file = f'd8_03901_1123K_850c_trim.xy'
     experimental_data_path = os.path.join(cwd, material_name, experimental_data_file)
     assert os.path.exists(experimental_data_path), f'Error: {experimental_data_path} does not exist. Please check the path to your experimental data file.'
     xdd_winpath = PureWindowsPath(Path(experimental_data_path).absolute())
 
     #^ CUSTOM MACROS FILE (appended to bottom of input files)
-    use_custom_macros = True
+    use_custom_macros = False
     if use_custom_macros:
-        custom_macros_file = 'hrpd_macros.txt'
+        custom_macros_file = 'nomad_bfo_macros.txt'
         custom_macro_path = os.path.join(cwd, 'instrument_parameters', custom_macros_file) 
         assert os.path.exists(custom_macro_path), f'Error: {custom_macro_path} does not exist. Please check the path to your custom macros file.'
         custom_macros = funcs.instrument_parameters(custom_macro_path)
@@ -53,39 +55,33 @@ def main():
     #^ CUSTOM PRE-XDD FILE (custom macros/text inserted before xdd section)
     use_pre_xdd = False
     if use_pre_xdd:
-        pre_xdd_file = 'nomad_bank_5_pre_xdd.txt'
+        pre_xdd_file = 'nomad_bfo_pre_xdd.txt'
         pre_xdd_file_path = os.path.join(cwd, 'instrument_parameters', pre_xdd_file)
         assert os.path.exists(pre_xdd_file_path), f'Error: {pre_xdd_file_path} does not exist. Please check the path to your pre xdd file.'
         pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', pre_xdd_file))
     else:
         pre_xdd_lines = '\n'
 
+    # beq_dict = {
+    #     'Bi1': [0.0, 1.0],
+    #     'Sn1': [0.0, 1.0],
+    #     'O1': [0.0, 1.0], 
+    #     'O2': [0.0, 1.0]
+    # }
     beq_dict = {
-        'Bi1': [0.0, 1.0],
-        'Sn1': [0.0, 1.0],
-        'O1': [0.0, 1.0], 
-        'O2': [0.0, 1.0]
+        'W': [0.0, 1.0],
+        'O': [0.0, 1.0]
     }
-
-    ''' 
-    vc macro: val on continue macro in topas
-    vc_matrix[[v1, v2, min, max], ....] --> fill in all 4 values for lattice parameters a, b, c, alpha, beta, gamma
-    demo use:
-    macro vc { val_on_continue = Val*Rand(v1,v2); }     --> where the current value of lattice parameter will be multiplied by a random value between v1 & v2
-    a lpa 10.725 vc min 7.0 max 25.0                    --> where 7.0 & 25.0 are the lower & upper bounds of the lattice parameter refinement
-    '''
-    vc_matrix =[[0.9, 1.1, 7.0, 25.0],
-                [0.9, 1.1, 7.0, 25.0],
-                [0.9, 1.1, 7.0, 25.0],
-                [0.95, 1.05, 70.0, 130.0],
-                [0.95, 1.05, 70.0, 130.0],
-                [0.95, 1.05, 70.0, 130.0],
-                ]
+    # beq_dict = {
+    #     'Bi': [0.0, 1.0],
+    #     'Fe': [0.0, 1.0],
+    #     'O': [0.0, 1.0]
+    # }
 
     # create batchfile for running all pawley refinments sequentially
     batchfile_folder = os.path.join(cwd, material_name, 'batchfiles_topas')
     if not os.path.exists(batchfile_folder): os.makedirs(batchfile_folder)
-    batchfile_path = os.path.join(batchfile_folder, f'rietveld_refinement_{material_name}.bat')
+    batchfile_path = os.path.join(batchfile_folder, f'rietveld_refinement_{material_name}_{phase_name}.bat')
 
     # ------------------------------------------------------------------------------------------------------
     # END OF USER INPUT
@@ -110,7 +106,7 @@ def main():
 
     
 
-    refinement_lines = funcs.refinement_options(iters=10000, continue_on_convergence=False, suppress_out_file=False)
+    refinement_lines = funcs.refinement_options(iters=600, continue_on_convergence=True, suppress_out_file=False)
     global_lines = funcs.global_parameters()
     xdd_lines = funcs.xdd(xdd_winpath)
     # ----- generate instrument specific lines -----
@@ -172,16 +168,16 @@ def main():
 
         if use_strain_modes:
             # create strain and symmetry mode lines from str_file with random values
-            mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain, use_strain_modes=True, refine_strain=True, beq_dict=beq_dict, refine_beq=True, refine_distortion=True, distortion_limits_off=True)
+            mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain, use_strain_modes=True, refine_strain=True, beq_dict=beq_dict, refine_beq=True, refine_ModeAmps=True, ModeAmp_limits_off=True, use_vc_harmonic_ModeAmp=True)
 
         if not use_strain_modes:
-            mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain, use_strain_modes=False, beq_dict=beq_dict, refine_beq=True, refine_distortion=True, distortion_limits_off=True)
+            mode_lines = funcs.generate_mode_lines(str_file, spacegroup_origin, random_strain, use_strain_modes=False, beq_dict=beq_dict, refine_beq=True, refine_ModeAmps=True, ModeAmp_limits_off=True)
 
         # insert peakshape, r_bragg, and scale into mode lines
         mode_lines.insert(4, f'\t\tphase_name {str_name}\n')
         mode_lines.insert(4, f'{input_dict["peakshape_lines"]}\n')
         mode_lines.insert(4, f'\t\tr_bragg 0.0\n')
-        mode_lines.insert(4, f'\t\tscale @ 100.0\n')
+        mode_lines.insert(4, f'\t\tscale @ 0.005\n')
 
         
         # write TOPAS input file for this random state

@@ -8,14 +8,14 @@ samples = [50, 100, 150, 200, 225]
 x = np.arange(len(samples))  # positions on the x-axis
 x = x / 2
 # Validation accuracies
-pzt90_5 = [85, 90.8, 90.2, 92.2, 92.3]  
-pzt90_10 = [98.5, 99.1, 99.3, 99.4, 99.7]
+pzt90_5 = [95.86, 98.76, 99.17, 99.03, 99.59]  
+pzt90_10 = [99.72, 100.0, 100.0, 100.0, 100.0]
 
-bso_5 = [78.8, 77.71, 86.7, 90, 91]
-bso_10 = [91, 89.8, 95.1, 96.8, 97.3]
+bso_5 = [83.48, 90.7, 93.79, 94.49, 95.38]
+bso_10 = [94.34, 97.5, 98.5, 98.52, 98.92]
 
-wo3_5 = [74.9, 76.1, 83.6, 83.5, 85.2]
-wo3_10 = [88.3, 89.5, 93.9, 93.5, 94.5]
+wo3_5 = [83.85, 89.12, 92.31, 94.35, 96.07]
+wo3_10 = [93.94, 96.8, 98.27, 99.1, 99.22]
 
 # Bar width
 bar_width = 0.08
@@ -41,8 +41,8 @@ for i, (offset, data, color, hatch, label) in enumerate(zip(offsets, data_groups
 plt.xlabel('Samples per Subgroup')
 plt.ylabel('Validation Accuracy (%)')
 plt.xticks(x, samples)
-plt.ylim(70, 95)
-plt.yticks(np.arange(70, 100, 10))
+plt.ylim(70, 101)
+plt.yticks(np.arange(70, 110, 10))
 # plt.legend(frameon=True, loc='upper left')
 plt.tight_layout()
 plt.savefig('validation_accuracy_vs_samples_bar.png', dpi=300)

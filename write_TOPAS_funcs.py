@@ -2184,7 +2184,21 @@ def parse_topas_str(file_lines, end_string, i):
 
 
 
-def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, use_strain_modes = True, refine_beq = False, beq_dict = None, refine_strain = False, refine_distortion = False, use_vc_strain=False, use_vc_dist=False, strain_limits_off=False, distortion_limits_off=False):
+def generate_mode_lines(isodistort_str_file, 
+                        spacegroup_origin, 
+                        random_strain, 
+                        use_strain_modes = True, 
+                        beq_dict = None, 
+                        refine_beq = False, 
+                        refine_strain = False, 
+                        refine_ModeAmps = False, 
+                        use_vc_strain=False, 
+                        strain_limits_off=False, 
+                        use_vc_harmonic_ModeAmp=False, 
+                        ModeAmp_limits_off=False,
+                        sigma_ma= 0.33,
+                        harmonic_ModeAmp_randRange=[-0.1, 0.1]
+                        ):
     '''
     Parameters
     ----------
@@ -2197,30 +2211,49 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
     use_strain_modes: bool
         if True: uses strain modes for lattice parameters
         if False: uses standard lattice parameter defining
-    refine_beq: bool
-        if True: 'beq' in mode_dependent_sites section will change to 'beq bval_{atom_type}'
-        if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
     beq_dict: dict
         USE:
         {'atom_type': [0, 2.5]} -> will use np.random.uniform to pull a random number from the range [0.0, 2.5)
         {'atom_type': [3.2]}    -> will set the beq value to 3.2 for that atom type
         Note: atom_type can be found in the topas_str file under mode_dependent_sites section
         EX: site Bi1_1 ....  --> atom_type = Bi1
-    use_vc_ma_macro: Bool
-        Whether to apply vc_ma macro for continue on convergence to augment the mode_amplitude value after every convergence
-        Also removes '!' before every prm aX in mode definitions to allow them to refine
+    refine_beq: bool
+        if True: 'beq' in mode_dependent_sites section will change to 'beq bval_{atom_type}'
+        if False: 'beq' in mode_dependent_sites section will change to 'beq !bval_{atom_type}'  -> '!' tells topas to not refine this parameter
+    refine_strain: bool
+        if True: no '!' is added before strain parameter name
+        if False: '!' is added before strain paramameter name
+    refine_ModeAmps: bool
+        if True: no '!' is added before mode amplitude distortion parameter name
+        if False: '!' is added before mode amplitude distortion parameter name
+    use_vc_strain: bool
+        if True: adds vc_strain macro after strain parameter value (randomizes strain value after every convergence cycle)
+    strain_limits_off: bool
+        if True: adds comment character before min max macro, thus turning off limits and allowing strain to refine without limits
+    use_vc_harmonic_ModeAmp: bool
+        if True: adds vc_HMA macro to bottom of mode amplitude section and adds vc_HMA after every mode amplitude value
+        Note: for automated Rietveld refinements, should be True and have continue_after_convergence keyword at top of file. 
+        This will allow important modes to reach a good value, and unimportant modes to have significantly lower values. 
+    ModeAmp_limits_off: bool
+        if True adds comment character before min max macro, thus turning off limits and allowing mode amplitudes to refine without limits
+    sigma_ma: float
+        std_dev of normal distribution for generating intial mode amplitude values
+        input for rand_values = np.random.normal(0, sigma_ma, len(mode_definitions_df))
+        default: 0.33 -- allows most common values found in Rietveld refinements
+    harmonic_ModeAmp_randRange: list of 2 floats
+        range limits for vc_HMA macro --> val_on_continue = Val*Rand(-0.1, 0.1);
 
-    
     Returns:
     ----------
         List of strings: for structure perturbation using strain modes and symmetry mode analysis for writing into a topas input file
 
     Purpose:
     ----------
-        This function is used to create perturbations of
+        This function is used to create:
         1) lattice parameters through strain mode amplitudes or custom lattice parameters, 
         2) atomic positions through mode amplitudes and mode_dependent_sites sections,
         3) thermal broadening of peaks in diffraction pattern through beq (topas isotropic thermal parameters)
+        4) macros for vc_* scenarios of randomizing parameter values after each round of convergence
 
     '''
 
@@ -2346,6 +2379,7 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
                 for j in range(len(latparam_lines)):
                     str_strain[i+1+j] = latparam_lines[j]
                 break    
+    
 
 
     # ----------------------------------------------------------------------------------------
@@ -2360,22 +2394,22 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
         mode_definitions_df = pd.DataFrame(mode_definitions_lines, columns=None)
 
         # generate random intial values for mode amplitudes
-        rand_values = np.random.normal(0, .15, len(mode_definitions_df))
+        rand_values = np.random.normal(0, sigma_ma, len(mode_definitions_df))
         mode_definitions_df[2] = rand_values
             
         # augment mode amplitude lines to include vc macro or remove distortion limits
-        if use_vc_dist and distortion_limits_off:
-            vc_column = ['vc_dist \'min']*len(mode_definitions_df)
+        if use_vc_harmonic_ModeAmp and ModeAmp_limits_off:
+            vc_column = ['vc_HMA \'min']*len(mode_definitions_df)
             mode_definitions_df[3] = vc_column
-        if use_vc_dist and not distortion_limits_off:
-            vc_column = ['vc_dist min']*len(mode_definitions_df)
+        if use_vc_harmonic_ModeAmp and not ModeAmp_limits_off:
+            vc_column = ['vc_HMA min']*len(mode_definitions_df)
             mode_definitions_df[3] = vc_column
-        if not use_vc_dist and distortion_limits_off:
+        if not use_vc_harmonic_ModeAmp and ModeAmp_limits_off:
             no_limits_column = ['\'min']*len(mode_definitions_df)
             mode_definitions_df[3] = no_limits_column
 
         #! remove the ! from variable names in mode definitions ('!' tells topas to not refine this parameter)
-        if refine_distortion == True:
+        if refine_ModeAmps == True:
             mode_var_names = mode_definitions_df[1].tolist()
             mode_var_names = [mode_var_names[i].strip('!') for i in range(len(mode_definitions_df))]
             mode_definitions_df[1] = mode_var_names
@@ -2386,6 +2420,10 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
         mode_definitions_writing_split = mode_definitions_writing.split(sep='\n')
 
         mode_definitions_writing = [f'\t\t{mode_definitions_writing_split[i]}\n' for i in range(len(mode_definitions_writing_split))]
+
+        if use_vc_harmonic_ModeAmp:
+            vc_MHA_line = f'\n\t\tmacro vc_HMA {{ val_on_continue = Val*Rand({harmonic_ModeAmp_randRange[0]}, {harmonic_ModeAmp_randRange[1]}); }}\n\n'
+            mode_definitions_writing.append(vc_MHA_line)
 
 
     # ----------------------------------------------------------------------------------------
@@ -2433,9 +2471,9 @@ def generate_mode_lines(isodistort_str_file, spacegroup_origin, random_strain, u
         
         # apply beq value from beq_value_dict
         if beq_dict != None:
-            mode_dependent_sites_lines[i][18] = str(beq_value_dict.get(atom_type))
+            mode_dependent_sites_lines[i][18] = f'{str(beq_value_dict.get(atom_type))}  min 0.0  max 5.0'
         else:
-            mode_dependent_sites_lines[i][18] = '0.0'
+            mode_dependent_sites_lines[i][18] = '0.0  min 0.0  max 5.0'
 
     # join list of strings back together
     mode_dependent_sites_lines = [' '.join(mode_dependent_sites_lines[i]) for i in range(len(mode_dependent_sites_lines))]

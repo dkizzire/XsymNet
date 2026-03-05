@@ -1,189 +1,111 @@
 import os
 import glob
 import json
+import time
 import re
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from sklearn.preprocessing import MaxAbsScaler
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+
+# ^ ------------------------------------------------------------------------------------------------------
+# * Diffraction Data Conversion Functions
+# ^ ------------------------------------------------------------------------------------------------------
+
+def tof2d(tof, tzero, difa, difc):
+    if difa > 0:
+        d = (-difc/(2*difa) + np.sqrt((difc/(2*difa))**2 + tof/difa - tzero/difa))
+    elif difa < 0:
+        d = (-difc/(2*difa) - np.sqrt((difc/(2*difa))**2 + tof/difa - tzero/difa))
+    elif difa == 0:
+        d = (tof - tzero) / difc
+    return d
 
 
-def save_kernel_weights(model, epoch, save_file="kernel_weights.txt"):
-    """Appends convolutional layer weights to a text file, grouped by kernel with epochs appended."""
-    if epoch % 50 != 0:
-        return  # Only save every 50 epochs
+def d2tof(d, tzero, difa, difc):
+    tof = (difa * d**2) + (difc * d) + tzero
+    return tof
+
+
+def twoTheta_to_d(twoTheta, wavelength):
+    d = wavelength / (2 * np.sin(np.radians(twoTheta/2)))
+    return d
+
+
+def find_closest_tof(xy_file, desired_tof, snip_name = '_snipped', create_snipped_data = False):
+    # read in xy file, find closest x to desired tof, return index
+    #remove comments and blank lines from xy file
+    data_check = ('-','0','1','2','3','4','5','6','7','8','9')
+    with open(xy_file, 'r') as f:    
+        lines = f.readlines() 
+        if not lines[0].startswith(data_check):
+            lines = [line for line in lines if line.strip() and not line.startswith(data_check)]
+            new_xy_file = (os.path.splitext(os.path.basename(xy_file))[0] + '_dataonly' + os.path.splitext(os.path.basename(xy_file))[1])
+            new_xy_file = os.path.join(os.path.dirname(xy_file), new_xy_file)
+            xy_file = new_xy_file
+            with open(new_xy_file, 'w') as f:
+                f.writelines(lines)
+            print(f'Wrote new xy file without comments or blank lines: {new_xy_file}')
+
+    data = np.loadtxt(xy_file)
+    x = data[:,0]
+    y = data[:,1]
+    index = (np.abs(x - desired_tof)).argmin()
     
-    if isinstance(model, torch.nn.DataParallel):
-        model = model.module
-    
-    conv1_weights = model.conv1.weight.detach().cpu().numpy()
-    conv2_weights = model.conv2.weight.detach().cpu().numpy()
-    
-    existing_data = {}
-    
-    # Read existing data if the file already exists
-    try:
-        with open(save_file, "r") as f:
-            lines = f.readlines()
-            kernel_name = None
-            for line in lines:
-                if line.startswith("conv"):
-                    kernel_name = line.strip()
-                    existing_data[kernel_name] = []
-                elif kernel_name and line.strip():
-                    existing_data[kernel_name].append(line.strip())
-    except FileNotFoundError:
-        pass  # No previous data exists, so we start fresh
-    
-    with open(save_file, "w") as f:
-        for layer_name, weights in zip(["conv1", "conv2"], [conv1_weights, conv2_weights]):
-            for i, kernel in enumerate(weights):
-                kernel_key = f"{layer_name} kernel {i+1}"
-                if kernel_key not in existing_data:
-                    f.write(f"{kernel_key}\n")
-                
-                weights_str = ", ".join(map(str, kernel.flatten()))
-                existing_data.setdefault(kernel_key, []).append(f"epoch {epoch} {weights_str}")
-        
-        # Write back grouped data
-        for kernel_key, records in existing_data.items():
-            f.write(f"{kernel_key}\n")
-            f.write("\n".join(records) + "\n\n")
-    
-    print(f"Kernel weights appended for epoch {epoch} in {save_file}")
+    # remove values before index
+    if create_snipped_data:
+        snip_x = x[index:]
+        snip_y = y[index:]
+        snip_xy_file = new_xy_file.replace('_dataonly', snip_name)
+        with open(snip_xy_file, 'w') as f:
+            for i in range(len(snip_x)):
+                f.write(f'{snip_x[i]:.3f} {snip_y[i]:.6f}\n')
+        print(f'Wrote snipped xy file without comments or blank lines: {snip_xy_file}')
 
+    return index, x[index], y[index]
 
-def train_test_split(path2braggdata, n_randomstates, n_testing):
-    
-    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+# ^ ------------------------------------------------------------------------------------------------------
+# * Preprocessing and Data Handling Functions
+# ^ ------------------------------------------------------------------------------------------------------
 
-    xtrain_list = []
-    xtest_list = []
-    ytrain_list = []
-    ytest_list = []
-
-    split_index = n_randomstates - n_testing
-        
-    for i in range(len(filepaths)):
-        temp = torch.load(filepaths[i])
-        count = 0
-        for j in range(temp.shape[0]):
-            if count < split_index:
-                xtrain_list.append(temp[j])
-                ytrain_list.append(i)
-            else:
-                xtest_list.append(temp[j])
-                ytest_list.append(i)
-            count+=1
-
-    xtrain = torch.vstack(xtrain_list)
-    xtest = torch.vstack(xtest_list)
-    ytrain = torch.tensor(ytrain_list)
-    ytest = torch.tensor(ytest_list)
-
-    print(f'Configure Bragg:')
-    print(f'Train_MAX: {torch.max(xtrain):.2f}\nTrain_MIN: {torch.min(xtrain):.2f}')
-    print(f'Test_MAX: {torch.max(xtest):.2f}\nTest_MIN: {torch.min(xtest):.2f}\n')
-
-
-    return xtrain, xtest, ytrain, ytest
-
-
-def configure_bragg_data_trunc(path2braggdata, n_randomstates, n_testing, scaling_dict={}, start_index:int = 0, end_index:int = -1):
-    '''depreciated'''
-    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
-
-    xtrain_list = []
-    xtest_list = []
-    ytrain_list = []
-    ytest_list = []
-
-    split_index = n_randomstates - n_testing
-
-    keys = list(scaling_dict.keys())
-
-    # expt_min = torch.min(expt)
-    # expt_max = torch.max(expt)
-    # print(f'\n\nConfigure Bragg PreScaling:')
-    # print(f'Expt MAX:{expt_max:.2f}\nExpt MIN:{expt_min:.2f}\n')
-
-
-    if len(keys) > 0:
-        print(('Applying scaling dict to data:\n'))
-        
-    for i in range(len(filepaths)):
-        temp = torch.load(filepaths[i])
-        #! Turn ManualScale on/off here
-        # temp = ManualScale(temp, expt_max, i)
-        # temp = ManualScaleConstant(temp, scalefactor=0.001)
-        #^ here we apply the optimal scale factor for each subgroup
-        # if len(keys) > 0:
-        #     temp_max = torch.max(temp)
-        #     temp = temp*scaling_dict[keys[i]]
-        #     scaled_max = torch.max(temp)
-        #     print(f'SGT {os.path.splitext(os.path.basename(filepaths[i]))[0]} max: {temp_max:.2f}   scaled: {scaled_max:.2f}')
-
-        count = 0
-        for j in range(temp.shape[0]):
-            if count < split_index:
-                # xtrain_list.append(temp[j,start_index:end_index])
-                xtrain_list.append(temp[j])
-                ytrain_list.append(i)
-            else:
-                # xtest_list.append(temp[j,start_index:end_index])
-                xtest_list.append(temp[j])
-                ytest_list.append(i)
-            count+=1
-
-    xtrain = torch.vstack(xtrain_list)
-    xtest = torch.vstack(xtest_list)
-    ytrain = torch.tensor(ytrain_list)
-    ytest = torch.tensor(ytest_list)
-
-    print(f'Post Configure Bragg:')
-    # print(f'Expt MAX:{expt_max:.2f}\nExpt MIN:{expt_min:.2f}')
-    print(f'Train_MAX: {torch.max(xtrain):.2f}\nTrain_MIN: {torch.min(xtrain):.2f}')
-    print(f'Test_MAX: {torch.max(xtest):.2f}\nTest_MIN: {torch.min(xtest):.2f}\n')
-
-
-    # train_max = torch.max(xtrain)
-    # test_max = torch.max(xtest)
-
-    # whole_max = max(train_max, test_max)
-    # # Compute the scaling factor to match the order of magnitude
-    # order_of_mag_simulated = 10 ** (len(str(int(whole_max))) - 1)
-    # order_of_mag_experimental = 10 ** (len(str(int(expt_max))) - 1)
-    # scaling_factor = order_of_mag_experimental / order_of_mag_simulated 
-
-    # scaled_xtrain = xtrain*scaling_factor
-    # scaled_xtest = xtest*scaling_factor
-
-    # print(f'scaled_xtrain max: {torch.max(scaled_xtrain)}')
-    # print(f'scaled_xtest max: {torch.max(scaled_xtest)}')
-
-    return xtrain, xtest, ytrain, ytest
-
-
-def load_xy_data(filepath):
+def load_xy_data(filepath, x_col=None, y_col=None, return_type='torch'):
     """
     Load x-y data from a file and return as torch tensors.
-    
+
     Automatically detects:
     - Comment lines (lines starting with #, !, %, or other non-numeric characters)
     - Delimiter (comma, space, tab, or multi-space)
     - Single column vs. two column data
-    
+
     Args:
         filepath (str): Path to the data file
-        
+        x_col (int, optional): Column index for x data (0-based). If None, uses
+            column 0 for multi-column files or generates indices for single-column.
+        y_col (int, optional): Column index for y data (0-based). If None, uses
+            column 1 for multi-column files or column 0 for single-column.
+        return_type (str): 'torch' (default) or 'numpy' for output format
+
     Returns:
-        tuple: (expt_x_axis, bragg_tensor) as torch tensors
+        tuple: (x, y) as torch tensors or numpy arrays depending on return_type
             - If file has 2 columns: returns (x_data, y_data)
             - If file has 1 column: returns (range(len(y_data)), y_data)
-            
+
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or has invalid format
+
+    Examples:
+        # Default behavior (columns 0 and 1):
+        x, y = load_xy_data('data.txt')
+
+        # Read x from column 0, y from column 2 (e.g., background):
+        x, bkg = load_xy_data('data.txt', x_col=0, y_col=2)
+
+        # Read only y from column 3, generate x as indices:
+        x, y_minus_bkg = load_xy_data('data.txt', x_col=None, y_col=3)
     """
     
     # Read all lines from file
@@ -238,7 +160,7 @@ def load_xy_data(filepath):
     # Parse all data lines
     x_data = []
     y_data = []
-    
+
     for line in data_lines:
         try:
             if delimiter:
@@ -246,21 +168,48 @@ def load_xy_data(filepath):
             else:
                 # split() with no argument splits on any whitespace and removes empty strings
                 parts = line.split()
-            
+
             # Remove empty strings
             parts = [p.strip() for p in parts if p.strip()]
-            
-            if len(parts) == 1:
-                # Single column - y data only
-                y_data.append(float(parts[0]))
-            elif len(parts) >= 2:
-                # Two or more columns - take first two as x and y
-                x_data.append(float(parts[0]))
-                y_data.append(float(parts[1]))
-            else:
+
+            if not parts:
                 # Empty line after splitting - skip
                 continue
-                
+
+            # Determine which columns to use
+            if x_col is not None and y_col is not None:
+                # Both columns explicitly specified
+                max_col = max(x_col, y_col)
+                if len(parts) <= max_col:
+                    print(f"Warning: Skipping line with insufficient columns (need {max_col+1}, got {len(parts)}): {line.strip()}")
+                    continue
+                x_data.append(float(parts[x_col]))
+                y_data.append(float(parts[y_col]))
+            elif y_col is not None:
+                # Only y_col specified, x will be generated as indices
+                if len(parts) <= y_col:
+                    print(f"Warning: Skipping line with insufficient columns (need {y_col+1}, got {len(parts)}): {line.strip()}")
+                    continue
+                y_data.append(float(parts[y_col]))
+            elif x_col is not None:
+                # Only x_col specified, use default y_col=1
+                eff_y_col = 1
+                max_col = max(x_col, eff_y_col)
+                if len(parts) <= max_col:
+                    print(f"Warning: Skipping line with insufficient columns (need {max_col+1}, got {len(parts)}): {line.strip()}")
+                    continue
+                x_data.append(float(parts[x_col]))
+                y_data.append(float(parts[eff_y_col]))
+            else:
+                # Default behavior (original logic)
+                if len(parts) == 1:
+                    # Single column - y data only
+                    y_data.append(float(parts[0]))
+                elif len(parts) >= 2:
+                    # Two or more columns - take first two as x and y
+                    x_data.append(float(parts[0]))
+                    y_data.append(float(parts[1]))
+
         except ValueError as e:
             # Skip lines that can't be converted to float
             print(f"Warning: Skipping line that couldn't be parsed: {line.strip()}")
@@ -284,52 +233,178 @@ def load_xy_data(filepath):
         # Generate x data as indices
         x_array = np.arange(len(y_data), dtype=np.float32)
     
-    # Convert to torch tensors
-    expt_x_axis = torch.from_numpy(x_array)
-    bragg_tensor = torch.from_numpy(y_array)
+    if return_type == 'numpy':
+        return x_array, y_array
+    elif return_type == 'torch':
+        # Convert to torch tensors
+        x_tensor = torch.from_numpy(x_array)
+        y_tensor = torch.from_numpy(y_array)
+        return x_tensor, y_tensor
+    else:
+        raise ValueError(f"Invalid return_type: {return_type}. Must be 'torch' or 'numpy'.")
+
+
+def set_plot_style():
+    rcParams.update({
+    "text.usetex": False,  # Use True for LaTeX rendering if desired
+    "font.family": "serif",
+    "font.size": 16,
+    "axes.labelsize": 16,
+    "axes.titlesize": 14,
+    "legend.fontsize": 16,
+    "xtick.labelsize": 16,
+    "ytick.labelsize": 16,
+    "xtick.major.size": 10,
+    "ytick.major.size": 10,
+    "figure.dpi": 300,
+    "savefig.bbox": "tight"
+    })
+
+
+def save_kernel_weights(model, epoch, save_file="kernel_weights.txt"):
+    """Appends convolutional layer weights to a text file, grouped by kernel with epochs appended."""
+    if epoch % 50 != 0:
+        return  # Only save every 50 epochs
     
-    return expt_x_axis, bragg_tensor
+    if isinstance(model, torch.nn.DataParallel):
+        model = model.module
+    
+    conv1_weights = model.conv1.weight.detach().cpu().numpy()
+    conv2_weights = model.conv2.weight.detach().cpu().numpy()
+    
+    existing_data = {}
+    
+    # Read existing data if the file already exists
+    try:
+        with open(save_file, "r") as f:
+            lines = f.readlines()
+            kernel_name = None
+            for line in lines:
+                if line.startswith("conv"):
+                    kernel_name = line.strip()
+                    existing_data[kernel_name] = []
+                elif kernel_name and line.strip():
+                    existing_data[kernel_name].append(line.strip())
+    except FileNotFoundError:
+        pass  # No previous data exists, so we start fresh
+    
+    with open(save_file, "w") as f:
+        for layer_name, weights in zip(["conv1", "conv2"], [conv1_weights, conv2_weights]):
+            for i, kernel in enumerate(weights):
+                kernel_key = f"{layer_name} kernel {i+1}"
+                if kernel_key not in existing_data:
+                    f.write(f"{kernel_key}\n")
+                
+                weights_str = ", ".join(map(str, kernel.flatten()))
+                existing_data.setdefault(kernel_key, []).append(f"epoch {epoch} {weights_str}")
+        
+        # Write back grouped data
+        for kernel_key, records in existing_data.items():
+            f.write(f"{kernel_key}\n")
+            f.write("\n".join(records) + "\n\n")
+    
+    print(f"Kernel weights appended for epoch {epoch} in {save_file}")
+    return 0
+
+
+def train_test_split(path2braggdata, n_randomstates, n_testing):
+    
+    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+
+    xtrain_list = []
+    xtest_list = []
+    ytrain_list = []
+    ytest_list = []
+
+    split_index = n_randomstates - n_testing
+        
+    for i in range(len(filepaths)):
+        temp = torch.load(filepaths[i])
+        count = 0
+        for j in range(temp.shape[0]):
+            if count < split_index:
+                xtrain_list.append(temp[j])
+                ytrain_list.append(i)
+            else:
+                xtest_list.append(temp[j])
+                ytest_list.append(i)
+            count+=1
+
+    xtrain = torch.vstack(xtrain_list)
+    xtest = torch.vstack(xtest_list)
+    ytrain = torch.tensor(ytrain_list)
+    ytest = torch.tensor(ytest_list)
+
+    print(f'train_test_split:')
+    print(f'Train_MAX: {torch.max(xtrain):.2f}\nTrain_MIN: {torch.min(xtrain):.2f}')
+    print(f'Test_MAX: {torch.max(xtest):.2f}\nTest_MIN: {torch.min(xtest):.2f}\n')
+
+
+    return xtrain, xtest, ytrain, ytest
+
+
+def train_test_split_number(path2braggdata, n_randomstates, n_training, n_testing):
+
+    assert(n_training + n_testing <= n_randomstates), "In train_test_split_number: \nn_training + n_testing must be less than or equal to n_randomstates"
+    print(f'\nIn train_test_split_number:')
+    print(f'n_randomstates = {n_randomstates}, n_training = {n_training}, n_testing = {n_testing}\n')
+
+    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
+
+    xtrain_list = []
+    xtest_list = []
+    ytrain_list = []
+    ytest_list = []
+
+    for i in range(len(filepaths)):
+        temp = torch.load(filepaths[i])
+
+        # xtest_list.append(temp[0:n_testing, :])
+        # ytest_list.extend([i]*n_testing)
+        # xtrain_list.append(temp[n_testing:(n_testing + n_training), :])
+        # ytrain_list.extend([i]*n_training)
+
+        for j in range(n_testing):
+            xtest_list.append(temp[j])
+            ytest_list.append(i)
+        for j in range(n_testing, n_testing + n_training):
+            xtrain_list.append(temp[j])
+            ytrain_list.append(i)
+
+    
+    xtrain = torch.vstack(xtrain_list)
+    xtest = torch.vstack(xtest_list)
+
+    ytrain = torch.tensor(ytrain_list)
+    ytest = torch.tensor(ytest_list)
+
+    
+    print(f'Train_MAX: {torch.max(xtrain):.2f}\nTrain_MIN: {torch.min(xtrain):.2f}')
+    print(f'Test_MAX: {torch.max(xtest):.2f}\nTest_MIN: {torch.min(xtest):.2f}\n')
+    print(f'Num training samples: {xtrain.shape} with {xtrain.shape[0] / len(filepaths)} per class')
+    print(f'Num testing samples: {xtest.shape}with {xtest.shape[0] / len(filepaths)} per class')
+    print(f'Num used / total available {xtrain.shape[0] + xtest.shape[0]} / {n_randomstates}\n\n')
+
+    return xtrain, xtest, ytrain, ytest
 
 
 def MinMaxScale_2d(train, test, expt=None, scale=1):
-
-    expt_min = 0
-    expt_max = 0
    
     min_val = torch.min(train)
     max_val = torch.max(train)
-    
-    if expt != None:
-        # expt_scale = 1/0.000295037729
-        # expt = expt*expt_scale
-        expt_min = torch.min(expt)
-        expt_max = torch.max(expt)
-        # print(f'Expt MAX:{expt_max:.2f}\nExpt MIN:{expt_min:.2f}\n')
-
-    # print(f'Normalization with MinMaxScale2d:')
 
     train_scaled = ((train-min_val) / (max_val - min_val))*scale
     test_scaled = ((test - min_val) / (max_val - min_val))*scale
     
     if expt != None:
         expt_scaled = ((expt - min_val) / (max_val - min_val))*scale 
-        #^ make sure that after scaling, the values don't go negative
-        # print('MIN clamping EXPT after scaling to prevent negative values\n')
-        # expt_scaled = torch.clamp(expt_scaled, min=0)
-        #^ debug clamp and check output
-        # expt_scaled_write = expt_scaled.t().numpy()
-        # np.savetxt('./TESTINGEXPTTENSOR.txt', expt_scaled_write, newline='\n')
     else:
         expt_scaled = None
-        
-    # if expt != None:
-    #     print(f'Expt MAX:{torch.max(expt_scaled):.2f}\nExpt MIN:{torch.min(expt_scaled):.2f}\n')
-    # print(f'Train_MAX:{torch.max(train_scaled):.2f}\nTrain_MIN:{torch.min(train_scaled):.2f}\n')
-    # print(f'Test_MAX:{torch.max(test_scaled):.2f}\nTest_MIN:{torch.min(test_scaled):.2f}\n')
+
     return train_scaled, test_scaled, expt_scaled
 
 
-def MaxAbsScale(X_train_load, X_test_load, X_expt_load=None):
+def MaxAbsScale(X_train_load, X_test_load, X_expt_load):
     '''
     Purpose: 
         Uses sklearn's MaxAbsScaler to build scaling transformer from X_train 
@@ -344,36 +419,72 @@ def MaxAbsScale(X_train_load, X_test_load, X_expt_load=None):
 
     training_local = X_train_load.numpy(force=True)
     testing_local = X_test_load.numpy(force=True)
-    if X_expt_load is not None:
-        expt_local = X_expt_load.numpy(force=True)
-        print(f'Pre-MAXABS SCALE \n Expt MAX: {np.max(expt_local):.2f}\nExpt MIN: {np.min(expt_local):.2f}\n')
-    else:
-        expt_local = None
+    expt_local = X_expt_load.numpy(force=True)
+    print(f'Pre-MAXABS SCALE \n Expt MAX: {np.max(expt_local):.2f}\nExpt MIN: {np.min(expt_local):.2f}\n')
 
     transformer = MaxAbsScaler().fit(training_local)
     training_scaled = transformer.transform(training_local)
     testing_scaled = transformer.transform(testing_local)
-    if expt_local is not None:
-        expt_scaled = transformer.transform(expt_local)
-        print(f'Expt MAX: {np.max(expt_scaled):.2f}\nExpt MIN: {np.min(expt_scaled):.2f}\n')
-    else:
-        expt_scaled = None
+    expt_scaled = transformer.transform(expt_local)
+    print(f'Expt MAX: {np.max(expt_scaled):.2f}\nExpt MIN: {np.min(expt_scaled):.2f}\n')
 
     X_train = torch.tensor(training_scaled)
     X_test = torch.tensor(testing_scaled)
-
-    if expt_scaled == None:
-        print(f'Train_MAX: {torch.max(X_train):.2f}\nTrain_MIN: {torch.min(X_train):.2f}\n')
-        print(f'Test_MAX: {torch.max(X_test):.2f}\nTest_MIN: {torch.min(X_test):.2f}\n')
-        X_expt = None
-
-    else:
-        X_expt = torch.tensor(expt_scaled)
-        print(f'Train_MAX: {torch.max(X_train):.2f}\nTrain_MIN: {torch.min(X_train):.2f}\n')
-        print(f'Test_MAX: {torch.max(X_test):.2f}\nTest_MIN: {torch.min(X_test):.2f}\n')
-        print(f'Expt MAX: {torch.max(X_expt):.2f}\nExpt MIN: {torch.min(X_expt):.2f}\n')
+    X_expt = torch.tensor(expt_scaled)
+       
+    print(f'Train_MAX: {torch.max(X_train):.2f}\nTrain_MIN: {torch.min(X_train):.2f}\n')
+    print(f'Test_MAX: {torch.max(X_test):.2f}\nTest_MIN: {torch.min(X_test):.2f}\n')
+    print(f'Expt MAX: {torch.max(X_expt):.2f}\nExpt MIN: {torch.min(X_expt):.2f}\n')
 
     return X_train, X_test, X_expt
+
+
+def sqrt_scale_diffraction(train, test, expt, quantile: float = 1.0, eps: float = 1e-12):
+    """
+    Apply square-root scaling to diffraction data using statistics
+    computed from the training set only.
+
+    Steps:
+      1. Clip negative values to zero
+      2. Compute sqrt-scaling constant from training data
+      3. Apply identical transform to train, test, and experimental data
+
+    Args:
+        train (torch.Tensor): Training data tensor
+        test (torch.Tensor): Testing/validation data tensor
+        expt (torch.Tensor): Experimental/inference data tensor
+        quantile (float): Quantile for robust max (1.0 = true max)
+        eps (float): Small constant for numerical stability
+
+    Returns:
+        scaled_train (torch.Tensor)
+        scaled_test (torch.Tensor)
+        scaled_expt (torch.Tensor)
+    """
+
+    # --- Clip negatives (Poisson-safe) ---
+    train_clipped = torch.clamp(train, min=0.0)
+    test_clipped  = torch.clamp(test,  min=0.0)
+    expt_clipped  = torch.clamp(expt,  min=0.0)
+
+    # --- Compute scaling constant from TRAINING data only ---
+    if quantile < 1.0:
+        # Robust max (recommended for diffraction)
+        scale_intensity = torch.quantile(
+            train_clipped.flatten(),
+            quantile
+        )
+    else:
+        scale_intensity = train_clipped.max()
+
+    scale = torch.sqrt(scale_intensity + eps)
+
+    # --- Apply square-root scaling ---
+    scaled_train = (torch.sqrt(train_clipped) / scale) *100
+    scaled_test  = (torch.sqrt(test_clipped)  / scale) *100
+    scaled_expt  = (torch.sqrt(expt_clipped)  / scale) *100
+
+    return scaled_train, scaled_test, scaled_expt
 
 
 def MinMaxScale(tensor):
@@ -386,7 +497,196 @@ def MinMaxScale(tensor):
     return scaled_tensor
 
 
-def get_subgroup_info(subgroup_num, cif_folder_path):
+
+#^ ------------------------------------------------------------------------------------------------------
+# * Multi-Channel Input Functions
+#^ ------------------------------------------------------------------------------------------------------
+
+def compute_log_channel(x, eps=1e-8):
+    """Compute log-scaled channel from intensity data.
+
+    Uses log1p (log(1+x)) to handle zero values safely.
+    Shifts data to positive range before applying log.
+
+    Args:
+        x: (batch, seq_len) tensor of intensity data
+        eps: Small value to prevent log(0)
+
+    Returns:
+        Log-scaled tensor of same shape
+    """
+    x_shifted = x - x.min() + eps  # Ensure all positive
+    return torch.log1p(x_shifted)
+
+
+def _gaussian_smooth_1d(x, sigma=1.0):
+    """Apply 1D Gaussian smoothing using conv1d.
+
+    Args:
+        x: (batch, seq_len) tensor
+        sigma: Gaussian kernel standard deviation
+
+    Returns:
+        Smoothed tensor of same shape
+    """
+    kernel_size = int(6 * sigma) | 1  # Ensure odd (covers ~99.7% of Gaussian)
+    half_k = kernel_size // 2
+
+    # Create Gaussian kernel
+    positions = torch.arange(-half_k, half_k + 1, dtype=torch.float32)
+    kernel = torch.exp(-positions**2 / (2 * sigma**2))
+    kernel = kernel / kernel.sum()
+    kernel = kernel.view(1, 1, -1).to(x.device)
+
+    # Apply convolution with padding
+    x = x.unsqueeze(1)  # (batch, 1, seq_len)
+    x = F.pad(x, (half_k, half_k), mode='replicate')
+    x = F.conv1d(x, kernel)
+    return x.squeeze(1)
+
+
+def compute_curvature_channel(x, apply_smoothing=False, sigma=1.0):
+    """Compute second derivative (curvature) via finite differences.
+
+    Uses the central difference formula: f''[i] = f[i+1] - 2*f[i] + f[i-1]
+
+    Args:
+        x: (batch, seq_len) tensor
+        apply_smoothing: If True, apply Gaussian smoothing first (default: False)
+        sigma: Gaussian kernel sigma if smoothing enabled
+
+    Returns:
+        Curvature tensor of same shape
+    """
+    if apply_smoothing:
+        x = _gaussian_smooth_1d(x, sigma)
+
+    # Second derivative: f''[i] = f[i+1] - 2*f[i] + f[i-1]
+    curvature = x[:, 2:] - 2*x[:, 1:-1] + x[:, :-2]
+
+    # Pad edges to restore original length
+    curvature = F.pad(curvature, (1, 1), mode='replicate')
+
+    return curvature
+
+
+def create_multichannel_input(X, apply_curvature_smoothing=False, sigma=1.0):
+    """Create 3-channel input tensor from 1D intensity data.
+
+    Channels:
+        1. Intensity (as-is)
+        2. Log-scaled intensity (reveals weak peaks)
+        3. Curvature / second derivative (highlights peak boundaries)
+
+    Args:
+        X: (batch, seq_len) MinMax-scaled intensity data
+        apply_curvature_smoothing: Enable Gaussian smoothing before curvature
+        sigma: Gaussian sigma if smoothing enabled
+
+    Returns:
+        (batch, 3, seq_len) tensor with channels [intensity, log, curvature]
+    """
+    ch1 = X  # Intensity as-is
+    ch2 = compute_log_channel(X)
+    ch3 = compute_curvature_channel(X, apply_curvature_smoothing, sigma)
+
+    return torch.stack([ch1, ch2, ch3], dim=1)
+
+
+def plot_multichannel_input(filepath, x_units='TOF (μs)', apply_smoothing=False, sigma=1.0,
+                            scale=100, save_path=None, figsize=(14, 10)):
+    """Plot all 3 channels of multi-channel input for a diffraction pattern.
+
+    Loads an xy file, applies MinMax scaling, computes the 3 channels,
+    and creates a visualization with subplots.
+
+    Args:
+        filepath: Path to xy data file (2-column: x, intensity)
+        x_units: Label for x-axis (default: 'TOF (μs)')
+        apply_smoothing: Apply Gaussian smoothing before curvature (default: False)
+        sigma: Gaussian sigma if smoothing enabled
+        scale: MinMax scaling factor (default: 100)
+        save_path: If provided, save figure to this path
+        figsize: Figure size tuple (default: (14, 10))
+
+    Returns:
+        fig, axes: matplotlib figure and axes objects
+    """
+    # Set up nice plotting defaults
+    rcParams.update({
+        "font.family": "serif",
+        "font.size": 12,
+        "axes.labelsize": 12,
+        "axes.titlesize": 14,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "figure.dpi": 150,
+    })
+
+    # Load the data
+    x_axis, intensity = load_xy_data(filepath)
+
+    # Convert to 2D tensor for processing (batch size 1)
+    intensity_2d = intensity.unsqueeze(0)
+
+    # Apply MinMax scaling
+    min_val = intensity_2d.min()
+    max_val = intensity_2d.max()
+    intensity_scaled = ((intensity_2d - min_val) / (max_val - min_val)) * scale
+
+    # Compute all 3 channels
+    X_multi = create_multichannel_input(intensity_scaled, apply_smoothing, sigma)
+
+    # Extract channels (remove batch dimension)
+    ch1 = X_multi[0, 0, :].numpy()  # Intensity
+    ch2 = X_multi[0, 1, :].numpy()  # Log-scaled
+    ch3 = X_multi[0, 2, :].numpy()  # Curvature
+    x = x_axis.numpy()
+
+    # Create figure with 3 subplots
+    fig, axes = plt.subplots(3, 1, figsize=figsize, sharex=True)
+
+    # Channel 1: Intensity
+    axes[0].plot(x, ch1, 'b-', linewidth=0.8)
+    axes[0].set_ylabel('Intensity (scaled)')
+    axes[0].set_title('Channel 1: MinMax-Scaled Intensity')
+    axes[0].grid(True, alpha=0.3)
+
+    # Channel 2: Log-scaled
+    axes[1].plot(x, ch2, 'g-', linewidth=0.8)
+    axes[1].set_ylabel('Log Intensity')
+    axes[1].set_title('Channel 2: Log-Scaled Intensity (log1p)')
+    axes[1].grid(True, alpha=0.3)
+
+    # Channel 3: Curvature
+    axes[2].plot(x, ch3, 'r-', linewidth=0.8)
+    axes[2].axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
+    axes[2].set_ylabel('Curvature')
+    smoothing_note = f' (σ={sigma})' if apply_smoothing else ''
+    axes[2].set_title(f'Channel 3: Curvature (2nd Derivative){smoothing_note}')
+    axes[2].set_xlabel(x_units)
+    axes[2].grid(True, alpha=0.3)
+
+    # Add filename to figure title
+    filename = os.path.basename(filepath)
+    fig.suptitle(f'Multi-Channel Input: {filename}', fontsize=14, fontweight='bold')
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f'Figure saved to: {save_path}')
+
+    return fig, axes
+
+
+
+#^ ------------------------------------------------------------------------------------------------------
+# * Output and Analysis Functions
+#^ ------------------------------------------------------------------------------------------------------
+
+def get_subgroup_info(subgroup_num, cif_folder_path): 
     '''
     Parameters
     ----------
@@ -422,6 +722,7 @@ def get_subgroup_info(subgroup_num, cif_folder_path):
 
         return_list = [subgroup_line, a,b,c,alpha,beta,gamma, hm_name, spacegroup_int]
     return return_list
+
 
 
 def get_str_info(str_path, str_type):
@@ -489,84 +790,6 @@ def get_str_info(str_path, str_type):
     return latparams, sg_o 
 
 
-def configure_bragg_data(path2braggdata, n_randomstates, n_testing):
-    
-    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
-
-    xtrain_list = []
-    xtest_list = []
-    ytrain_list = []
-    ytest_list = []
-
-    split_index = n_randomstates - n_testing
-    for i in range(len(filepaths)):
-        temp = torch.load(filepaths[i])
-        count = 0
-        for j in range(temp.shape[0]):
-            if count < split_index:
-                xtrain_list.append(temp[j])
-                ytrain_list.append(i)
-            else:
-                xtest_list.append(temp[j])
-                ytest_list.append(i)
-            count+=1
-
-    xtrain = torch.vstack(xtrain_list)
-    xtest = torch.vstack(xtest_list)
-    ytrain = torch.tensor(ytrain_list)
-    ytest = torch.tensor(ytest_list)
-
-    return xtrain, xtest, ytrain, ytest
-
-
-def ManualScale(data, expt_max, i):
-
-    temp_max = torch.max(data)
-    scaling = expt_max/temp_max
-    scaled_data = data*scaling
-    
-    print(f'subgroup {i} max: {temp_max}, {torch.max(scaled_data)}, {scaling}')
-
-    return scaled_data
-
-
-def ManualScaleConstant(data, scalefactor):
-
-    scaled_data = data*scalefactor
-    
-    return scaled_data
-
-
-def configure_hkl_data_trunc(path2braggdata, trunc_index, n_randomstates, n_testing, maplocation):
-    
-    filepaths = sorted(glob.glob(os.path.join(path2braggdata, '*.pt')))
-
-    xtrain_list = []
-    xtest_list = []
-    ytrain_list = []
-    ytest_list = []
-
-    split_index = n_randomstates - n_testing
-    for i in range(len(filepaths)):
-        temp = torch.load(filepaths[i], map_location=maplocation)
-        count = 0
-        for j in range(temp.shape[0]):
-            if count < split_index:
-                xtrain_list.append(temp[j,trunc_index:])
-                ytrain_list.append(i)
-            else:
-                xtest_list.append(temp[j,trunc_index:])
-                ytest_list.append(i)
-            count+=1
-
-    xtrain = torch.vstack(xtrain_list)
-    xtest = torch.vstack(xtest_list)
-    ytrain = torch.tensor(ytrain_list)
-    ytest = torch.tensor(ytest_list)
-
-    return xtrain, xtest, ytrain, ytest
-
-
 def increment_dict_value(dictionary, key):
     value = dictionary.get(key, 0)
     value += 1
@@ -588,7 +811,6 @@ def sort_dict_by_values_ascend(dictionary):
 def save_dict_to_json(dictionary, filename):
     with open(filename, 'w') as f:
         json.dump(dictionary, f, indent=4)
-
 
 
 def analyze_prediction_stability(seeded_predictions, top_n, str_files):
@@ -679,7 +901,6 @@ def analyze_prediction_stability(seeded_predictions, top_n, str_files):
     stability_metrics.insert(1, 'HM Name', hm_name)
     stability_metrics.insert(1, 'Spacegroup:Origin', spacegroup_origin)
     print(stability_metrics)
-
     return stability_metrics
 
 
@@ -755,5 +976,96 @@ def get_top10_output(filepath_list):
                     break
             seed_outputs.append(top10)
     return seed_outputs
+
+
+def get_validation_metrics(filepath_list):
+    '''
+    Extracts validation metrics (Top-1/3/5 Accuracy and F1 macro) from output files.
+
+    Parameters
+    ----------
+    filepath_list: list of str
+        List of filepaths to the output files from different seeds
+
+    Returns:
+    ----------
+    metrics_dict: dict
+        Dictionary containing lists of metrics from each file:
+        - 'top1_accuracy': list of Top-1 Accuracy values
+        - 'top3_accuracy': list of Top-3 Accuracy values
+        - 'top5_accuracy': list of Top-5 Accuracy values
+        - 'f1_macro': list of F1 (macro) values
+    '''
+    metrics_dict = {
+        'top1_accuracy': [],
+        'top3_accuracy': [],
+        'top5_accuracy': [],
+        'f1_macro': []
+    }
+
+    for filepath in filepath_list:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                line = line.strip()
+                if line.startswith('Top-1 Accuracy:'):
+                    val = float(line.split(':')[1].strip())
+                    metrics_dict['top1_accuracy'].append(val)
+                elif line.startswith('Top-3 Accuracy:'):
+                    val = float(line.split(':')[1].strip())
+                    metrics_dict['top3_accuracy'].append(val)
+                elif line.startswith('Top-5 Accuracy:'):
+                    val = float(line.split(':')[1].strip())
+                    metrics_dict['top5_accuracy'].append(val)
+                elif line.startswith('F1 (macro):'):
+                    val = float(line.split(':')[1].strip())
+                    metrics_dict['f1_macro'].append(val)
+
+    return metrics_dict
+
+
+def summarize_validation_metrics(filepath_list):
+    '''
+    Extracts and summarizes validation metrics across multiple seed runs.
+
+    Parameters
+    ----------
+    filepath_list: list of str
+        List of filepaths to the output files from different seeds
+
+    Returns:
+    ----------
+    summary_df: pandas DataFrame
+        DataFrame with columns: Metric, Mean, Std Dev, Min, Max, N
+    '''
+    metrics = get_validation_metrics(filepath_list)
+
+    summary_data = []
+    metric_names = {
+        'top1_accuracy': 'Top-1 Accuracy',
+        'top3_accuracy': 'Top-3 Accuracy',
+        'top5_accuracy': 'Top-5 Accuracy',
+        'f1_macro': 'F1 (macro)'
+    }
+
+    for key, display_name in metric_names.items():
+        values = metrics[key]
+        if len(values) > 0:
+            summary_data.append({
+                'Metric': display_name,
+                'Mean': np.mean(values),
+                'Std Dev': np.std(values),
+                'Min': np.min(values),
+                'Max': np.max(values),
+                'N': len(values)
+            })
+
+    summary_df = pd.DataFrame(summary_data)
+    summary_df['Mean'] = summary_df['Mean'].round(4)
+    summary_df['Std Dev'] = summary_df['Std Dev'].round(4)
+    summary_df['Min'] = summary_df['Min'].round(4)
+    summary_df['Max'] = summary_df['Max'].round(4)
+
+    return summary_df
 
 

@@ -20,22 +20,33 @@ rcParams.update({
 
 })
 
-    # "savefig.bbox": "tight"
-
 # use current working directory as base and build paths portably
 cwd = os.getcwd()
 data_dir = os.path.join(cwd, "wo3")
-file_names = ['d8_03901_t1043.xy', 'd8_03901_t1085.xy']
+# file_names = ['d8_03901_t1043_plot.xy', 'd8_03901_t1085_plot.xy']
+file_names = ['d8_03901_t1043_plot.xy', 'd8_03901_1123K_850c_trim.xy']
 
 x1, y1 = util.load_xy(os.path.join(data_dir, file_names[0]))
 x2, y2 = util.load_xy(os.path.join(data_dir, file_names[1]))
+
+# bdata1 = np.loadtxt(os.path.join(cwd, 'wo3', 'experimental_refinement', 'pawley', 'P1_wo3_1043K_xybkg.xy'))
+# bkg1 = bdata1[:, 2]
+
+# bdata2 = np.loadtxt(os.path.join(cwd, 'wo3', 'experimental_refinement', 'pawley', 'P1_wo3_1085K_xybkg.xy'))
+# bkg2 = bdata2[:, 2]
+
+# y1 = y1 - bkg1
+# y2 = y2 - bkg2
+
+
+
 
 # Normalize both datasets to 0-100 scale for better comparison
 maxy = np.max(y1)
 miny = np.min(y1)
 scale = 83
-y1 = (y1 - miny) / (maxy - miny) * scale
-y2 = (y2 - miny) / (maxy - miny) * scale
+# y1 = (y1 - miny) / (maxy - miny) * scale
+# y2 = (y2 - miny) / (maxy - miny) * scale
 
 # Compute optimal scale factor
 a_opt = np.dot(y1, y2) / np.dot(y1, y1)
@@ -46,16 +57,19 @@ print("Minimized mean squared error =", mse)
 
 fig, ax = plt.subplots()
 # fig, ax = plt.subplots(figsize=(8, 5))
-ax.plot(x2, y2, '-', lw=0.9, color='#000000FF', label=r'WO$_{3}$ 1085 K')
-ax.plot([],[], ' ', label= 'SG# 130 P4/ncc:2')
+# ax.plot(x2, y2, '-', lw=0.9, color='#000000FF', label=r'WO$_{3}$ 1085 K')
+ax.plot(x2, y2, '-', lw=0.9, color='#000000FF', label=r'WO$_{3}$ 1123 K')
+ax.plot([],[], ' ', label= '130 P4/ncc:2')
 
-ax.plot(x1, y1*1.2, '-', lw=0.5, color='#D2572EFF', label=r'WO$_{3}$ 1043 K')
-ax.plot([],[], ' ', label= 'SG# 14 P121/c1')
+ax.plot(x1, y1, '-', lw=0.5, color='#ED3030FF', label=r'WO$_{3}$ 1043 K')
+# ax.plot(x1, y1*1.2, '-', lw=0.5, color='#ED3030FF', label=r'WO$_{3}$ 1043 K')
+ax.plot([],[], ' ', label= '14 P121/c1')
 
 # add inset axes (zoomed region between 52 and 62)
 axins = fig.add_axes([0.30, 0.45, 0.33, 0.36])  # [left, bottom, width, height]
 axins.plot(x2, y2, '-', lw=0.9, color='#000000FF')
-axins.plot(x1, y1*1.2, '-', lw=0.5, color='#D2572EFF')
+axins.plot(x1, y1, '-', lw=0.5, color='#ED3030FF')
+# axins.plot(x1, y1*1.2, '-', lw=0.5, color='#ED3030FF')
 x_min, x_max = 52, 62
 axins.set_xlim(x_min, x_max)
 
@@ -79,9 +93,9 @@ axins.set_yticks([])
 
 
 ax.set_xlim(21, 90)
-ax.set_xlabel(r'2$\theta$ (degrees)')
+ax.set_xlabel(r'2$\theta$ (°)')
 ax.set_ylabel('Intensity (a.u.)')
 ax.legend()
 
-plt.savefig(os.path.join(cwd, 'wo3', "wo3_diffraction_comparison.png"), dpi=300, bbox_inches='tight')
+plt.savefig(os.path.join(cwd, 'wo3', "wo3_diffraction_comparison_1043_1123.png"), dpi=300, bbox_inches='tight')
 plt.show()
