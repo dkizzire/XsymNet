@@ -1,0 +1,7 @@
+r_wp  0 r_exp  0 r_p  0 r_wp_dash  0 r_p_dash  0 r_exp_dash  0 weighted_Durbin_Watson  0 gof  0
+	NeutronDiffraction_NOMAD  
+	NOMAD_bank3 
+	local mu  1.95385544e-05` min 0 max 1 
+	bkg @  0.0516535789` -0.0141564625`  0.0162723923` -0.0102380329`  0.00634511796`  0.00139725578`  0.000263843346`  0.00100022512` -0.000593510606`  0.000994761788`  0.00031787223`  0.000437154122`  0.000251456424`
+	'TOF_x_axis_calibration(,t03, , difc3, ,difa3) 
+	 TOF_x_axis_calibration_front_scattering_banks(,t03, ,t03_long,, difc3 , ,difa3,,difa33) 

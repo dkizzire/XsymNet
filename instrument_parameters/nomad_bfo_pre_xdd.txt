@@ -1,0 +1,107 @@
+'-----------------------------------------------------------------
+macro file_name {NOM_BFO-400}            'replace the file name in the bracket!!! 
+#define NOMAD_bank3 
+
+'-----------------------------------------------------------------
+macro Out_X_dspace_Yobs_Ycalc_diff_TOF_b3(file) 
+{ 
+   xdd_out file load out_record out_fmt out_eqn 
+   { 
+   	" %11.6f"   = X; 
+      " %11.6f" = -(difc3/(2*difa3))-((((difc3/(2*difa3))^2)-((t03-X)/difa3))^0.5); 
+      " %11.6f  " = Yobs; 
+      " %11.6f  " = Ycalc; 
+      " %11.6f\n" = Yobs-Ycalc; 
+   } 
+}
+
+'-----------------------------------------------------------------### tof-to-d conversion, tof = t0 + difc*d + difa * d^2 ### 
+prm !difc1  1435.87496_0.77638    'values obtained from combined refinement of Si 640e and NAC, keep them fixed  
+prm !difc2  2852.68393_0.28043 
+prm !difc3  5602.39585_0.31896 
+prm !difc4  9059.77189_0.47022 
+prm !difc5  9903.35190_0.41731 
+ 
+prm t01  -27.52742`    ' for NAC 
+prm t02 -7.56056` 
+prm !t03  -6.56178_0.16248 
+prm !t04 -19.49750_0.12155 
+prm !t05   -9.70992_0.07829 
+prm difa1  1.9439` 
+prm difa2  0.1454` 
+prm !difa3 -4.12158_0.07411 
+prm !difa4 -22.70274_0.09293 
+prm !difa5  -8.16951_0.06824 
+     
+prm t01_long -89.80816` 'only with large d-spacing peaks 'tof =t0 + difc*d + difa * d^2 
+prm t02_long -19.6638` 
+prm !t03_long  13.93758_0.85007 
+prm !t04_long  52.17596_2.32346 
+prm difa11  6.81981` 
+prm difa22  3.83228` 
+prm !difa33 -9.15769_0.18567 
+prm !difa44 -50.12613_0.80978 
+     
+prm t01_2  -11.76072`   ' for Si 'extra conversion term, break pattern into two parts, only with large d-spacing peaks  
+prm t02_2  -0.45161` 
+prm !t03_2  -6.17227_0.06862 
+prm !t04_2  -15.48223_0.05590 
+prm !t05_2  -6.65008_0.04535 
+prm difa1_2 -1.68439` 
+prm difa2_2  1.81548` 
+prm !difa3_2 -1.61342_0.03058 
+prm !difa4_2 -22.62071_0.05029 
+prm !difa5_2 -6.00218_0.04910 
+ 
+'----------------------------------------------------------------- 
+ 
+'------------------------------------------------------------------ ##structure and scale refinement related parameters##### 
+prm scalephase1  0.00112` 
+prm !scalephase2  0.0   'fix this value to 0 if there is only a single phase  
+prm scalebank2  0.00255`   'min 0.1 max 10 
+prm scalebank3  0.00512070771`   'min 0.1 max 10 
+prm scalebank4  0.00998`   'min 0.1 max 10 
+prm scalebank5  0.00931`   'min 0.1 max 10 
+ 
+'----------------------------------------------------------------- sample broadening parameters for phase I 
+prm  gama0_sample_bank1     7e-05` min 0   max 2000  ' see GSAS manual for details, it is found that PV function works better than pure Lorentzian function 
+prm  gama1_strain_bank1     43.18274` min 0   max 2000 
+prm  gama2_size_bank1       4.7377` min 0   max 2000 
+prm  sample_lor_bank1        0.22331` min 0.0001 max 1 
+ 
+prm  gama0_sample_bank2   0` min 0   max 2000 
+prm  gama1_strain_bank2   54.56952` min 0   max 2000 
+prm  gama2_size_bank2     3.48667` min 0   max 2000 
+prm  sample_lor_bank2     0.39016`  min 0 max 1 
+ 
+prm  gama0_sample_bank3   21.1712621`     min 0   max 2000 
+prm  gama1_strain_bank3   41.912372`     min 0   max 2000 
+prm  gama2_size_bank3     11.7701735`      min 0   max 2000 
+prm  sample_lor_bank3     0.377074246` min 0 max 1 
+ 
+prm  gama0_sample_bank4   25.22683` min 0   max 200 
+prm  gama1_strain_bank4   5.94414` min 0   max 200 
+prm  gama2_size_bank4     17.9014` min 0   max 200 
+prm  sample_lor_bank4     0.40287`  min 0 max 1 
+ 
+prm gama0_sample_bank5   3.50986` min 0     max 200 
+prm gama1_strain_bank5   25.87436` min 0    max 200 
+prm gama2_size_bank5     2e-05` min 0    max 200 
+prm sample_lor_bank5     0.53018`  min 0 max 1 
+	 
+prm !cystallite_size = 0.94* difc5/gama2_size_bank5;:  465457539` 'use the highest resoluiton bank to extract crystallite size and microstrain information.  
+prm !sample_microstrain = gama1_strain_bank5/difc5;:  0.00261268712` 
+'------------------------------------------------------------------------------ 
+
+
+macro NOMAD_bank3{ 
+	start_X 1400 
+	finish_X 19600       
+	local !Lpath 20.185 
+	local !two_theta 67 
+	local !local_cut  2.0  ' extra x-axis conversion cut-off 
+	} 
+
+'------------------------------------------------------------------------------------------ ### Main refinement block ### 
+' #ifdef NOMAD_bank3
+

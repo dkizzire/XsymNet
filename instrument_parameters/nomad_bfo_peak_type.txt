@@ -1,0 +1,4 @@
+	'scale = scalebank3 * scalephase1/(scalephase1+scalephase2);:   0.00512070771` 
+
+    NOMAD_bank3_ipf 
+	sample_broadening(, gama0_sample_bank3,, gama1_strain_bank3,, gama2_size_bank3, , sample_lor_bank3 ) 
