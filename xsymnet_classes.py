@@ -294,8 +294,8 @@ class GradCAM:
             cam += pooled_gradients[0, i] * self.activations[0, i]
         
         cam = F.relu(cam)  # Apply ReLU
-        cam = cam - cam.min()
-        cam = cam / cam.max()
+        # cam = cam - cam.min()
+        # cam = cam / cam.max()
         
         return cam.cpu().numpy()
     
@@ -320,7 +320,7 @@ class GradCAM:
 
             class_score = output[0, target_class]  # Must be scalar for backward() - maybe replace with output[i, target_class] if batch processing is needed
             class_score.backward()
-            # class_score.backward(retain_graph=True)
+
             
             # --- Safety checks ---
             assert self.activations is not None, "Activations are None. Did the forward hook run?"
@@ -350,7 +350,7 @@ def plot_avg_cam_with_expt(xrd_expt, avg_cam, x_axis, x_units='2θ (degrees)', s
     xrd_expt = xrd_expt.squeeze()
    
     rcParams.update({
-        "text.usetex": False,  # Use True for LaTeX rendering if desired
+        # "text.usetex": True,  # Use True for LaTeX rendering if desired
         "font.family": "serif",
         "font.size": 16,
         "axes.labelsize": 16,
@@ -393,7 +393,8 @@ def plot_avg_cam_with_expt(xrd_expt, avg_cam, x_axis, x_units='2θ (degrees)', s
     ax.set_ylabel("Intensity A.U.", fontsize=14)
     ax.legend()
     plt.savefig(save_name, dpi=600, bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
 
 def plot_avg_cam_with_expt_zoom_in(xrd_expt, avg_cam, x_axis, x_units='2θ (degrees)', save_name="avg_cam_plot.png", legend_label= '', title=None):
     
@@ -401,7 +402,7 @@ def plot_avg_cam_with_expt_zoom_in(xrd_expt, avg_cam, x_axis, x_units='2θ (degr
     xrd_expt = xrd_expt.squeeze()
    
     rcParams.update({
-        "text.usetex": False,  # Use True for LaTeX rendering if desired
+        # "text.usetex": True,  # Use True for LaTeX rendering if desired
         "font.family": "serif",
         "font.size": 16,
         "axes.labelsize": 16,
@@ -455,7 +456,399 @@ def plot_avg_cam_with_expt_zoom_in(xrd_expt, avg_cam, x_axis, x_units='2θ (degr
     ax.set_ylabel("Intensity A.U.", fontsize=14)
     ax.legend()
     plt.savefig(save_name, dpi=600, bbox_inches='tight')
-    plt.show()
+    # plt.show()
+    plt.close()
+
+
+    
+#^ ------------------------------------------------------------------------------------------------------
+# * Integrated Gradients
+#^ ------------------------------------------------------------------------------------------------------
+
+class IntegratedGradients:
+    """
+    Integrated Gradients (IG) attributions at full input resolution.
+
+    Reference: Sundararajan et al., "Axiomatic Attribution for Deep Networks" (2017).
+
+    Unlike GradCAM (which hooks a downsampled intermediate feature map), IG
+    operates directly at the raw input level: attributions have the same length
+    as the input diffraction pattern with no upsampling artifacts.  The
+    attention layer's global gradient routing does not corrupt IG because
+    gradients are accumulated at the input rather than at an intermediate
+    feature map.
+
+    Completeness axiom (built-in correctness guarantee):
+        Σᵢ IG_i(x) ≈ F_c(x) − F_c(x′)
+    Attributions sum to the model's prediction gap between the actual input
+    and the baseline, so the budget is exactly preserved.
+
+    Args:
+        model (nn.Module): Trained XSymNet model (plain or DataParallel-wrapped).
+    """
+
+    def __init__(self, model):
+        self.model = model
+
+    def generate_ig(self, input_tensor, target_class, baseline=None, n_steps=50):
+        """
+        Compute Integrated Gradients for a single input sample.
+
+        The integral ∫₀¹ (∂F_c / ∂x)|_{x′ + α(x−x′)} dα is approximated with a
+        Riemann sum over n_steps evenly spaced α values in [0, 1].
+
+        torch.autograd.grad is used instead of .backward() so that model
+        parameter gradients are never touched — only path_inputs receives a
+        gradient, leaving the model state clean across repeated calls.
+
+        Args:
+            input_tensor (Tensor): shape (1, seq_len). Input diffraction pattern.
+            target_class (int): Class index for which attributions are computed.
+            baseline (Tensor | None): shape (1, seq_len). The reference
+                "uninformative" input. Defaults to all-zeros, which is physically
+                natural for MinMax-scaled data (zero intensity at every bin).
+                For z-score normalised data, all-zeros ≡ average intensity.
+            n_steps (int): Riemann-sum approximation steps. 50 is practical for
+                exploratory work; use 200-300 for final publication figures.
+
+        Returns:
+            ig (np.ndarray): shape (seq_len,). Signed attribution per TOF/2θ bin.
+                Positive → supports the target-class prediction.
+                Negative → opposes it (pushes the model toward other classes).
+        """
+        self.model.eval()
+
+        if baseline is None:
+            baseline = torch.zeros_like(input_tensor)
+
+        # Straight-line interpolation path: baseline (α=0) → actual input (α=1)
+        alphas     = torch.linspace(0.0, 1.0, n_steps, device=input_tensor.device)
+        delta      = (input_tensor - baseline).detach()                      # (1, seq_len)
+        path_inputs = baseline.detach() + alphas.view(-1, 1) * delta         # (n_steps, seq_len)
+        path_inputs = path_inputs.requires_grad_(True)                       # leaf tensor
+
+        outputs = self.model(path_inputs)                                    # (n_steps, num_classes)
+        score   = outputs[:, target_class].sum()
+
+        # Compute gradient only w.r.t. path_inputs; model parameter grads untouched
+        grads     = torch.autograd.grad(score, path_inputs)[0]               # (n_steps, seq_len)
+        avg_grads = grads.detach().mean(dim=0)                               # (seq_len,)
+        ig        = delta.squeeze() * avg_grads                              # (seq_len,)
+        return ig.cpu().numpy()
+
+    def generate_average_ig(self, input_batch, target_class, baseline=None, n_steps=50):
+        """
+        Average IG attributions over a batch of samples from the same class.
+
+        Analogous to GradCAM's generate_average_cam: averages attributions over
+        N simulated patterns of the target subgroup to produce a class-level map.
+
+        Computational note: this performs n_steps forward passes per sample.
+        For large batches (> a few hundred), pass a subsampled slice of
+        input_batch or reduce n_steps to manage runtime.
+
+        Args:
+            input_batch (Tensor): shape (N, seq_len). All from the same subgroup.
+            target_class (int): Class index for attribution.
+            baseline (Tensor | None): shape (1, seq_len). Defaults to all-zeros.
+            n_steps (int): Integration steps per sample.
+
+        Returns:
+            avg_ig (np.ndarray): shape (seq_len,). Mean signed attribution per bin.
+        """
+        if baseline is None:
+            baseline = torch.zeros(1, input_batch.shape[1], device=input_batch.device)
+
+        igs = []
+        print(f"Generating IG for {input_batch.shape[0]} samples → class {target_class}...")
+        for i in range(input_batch.shape[0]):
+            ig = self.generate_ig(
+                input_batch[i:i+1], target_class,
+                baseline=baseline, n_steps=n_steps
+            )
+            igs.append(ig)
+
+        return np.mean(igs, axis=0)   # (seq_len,)
+
+
+#^ ------------------------------------------------------------------------------------------------------
+# * Attention Rollout
+#^ ------------------------------------------------------------------------------------------------------
+
+class AttentionRollout:
+    """
+    Attention Rollout importance scores for XSymNet's single attention layer.
+
+    Reference: Abnar & Zuidema, "Quantifying Attention Flow in Transformers" (2020).
+
+    Raw attention weights alone are misleading because the residual connection
+    around the attention layer means each position always "attends to itself"
+    independently of the learned weights.  Rollout corrects for this by mixing
+    the identity matrix (residual path) with the head-averaged attention weights:
+
+        R = 0.5 · I  +  0.5 · A_avg       (I = identity, A_avg = head-averaged weights)
+        R ← R / row_sums(R)               (row-normalise)
+        importance_j = Σᵢ R[i, j]         (column sum: contribution of position j)
+
+    Resolution note: output length is the feature-map length after the two
+    conv+pool stages (~L/8 of the raw input).  Use plot_avg_rollout_with_expt
+    to upsample and overlay on the experimental diffraction pattern.
+
+    Args:
+        model (nn.Module): Trained XSymNet model (plain or DataParallel-wrapped).
+    """
+
+    def __init__(self, model):
+        self.model = model
+        self._attn_weights: dict = {}
+        self._hook_handle = None
+
+    def _get_attention_module(self):
+        """Return the MultiheadSelfAttention module, unwrapping DataParallel if needed."""
+        m = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+        return m.attention
+
+    def _register_hook(self):
+        """
+        Attach a forward hook to MultiheadSelfAttention that captures the
+        attention weight matrix by recomputing Q and K from the module's own
+        parameters and the layer input.  This is necessary because
+        MultiheadSelfAttention.forward() does not return the weight matrix.
+        """
+        attn_module = self._get_attention_module()
+
+        def _hook(module, hook_input, _hook_output):
+            x = hook_input[0]                                    # (batch, channels, seq_len)
+            batch_size, _channels, seq_len = x.shape
+            x_perm = x.permute(0, 2, 1)                         # (batch, seq_len, channels)
+            with torch.no_grad():
+                Q = module.query(x_perm).view(
+                    batch_size, seq_len, module.num_heads, module.head_dim
+                ).transpose(1, 2)                                # (batch, heads, seq, head_dim)
+                K = module.key(x_perm).view(
+                    batch_size, seq_len, module.num_heads, module.head_dim
+                ).transpose(1, 2)
+                scores  = torch.matmul(Q, K.transpose(-2, -1)) / module.scale
+                weights = torch.softmax(scores, dim=-1)          # (batch, heads, seq, seq)
+                self._attn_weights['A'] = weights.detach().cpu()
+
+        self._hook_handle = attn_module.register_forward_hook(_hook)
+
+    def _remove_hook(self):
+        if self._hook_handle is not None:
+            self._hook_handle.remove()
+            self._hook_handle = None
+
+    def generate_rollout(self, input_tensor):
+        """
+        Compute attention rollout importance for a single input.
+
+        Args:
+            input_tensor (Tensor): shape (1, seq_len).
+
+        Returns:
+            importance (np.ndarray): shape (feat_seq_len,). Non-negative column-sum
+                importance at feature-map resolution (~L/8 of raw input length).
+                All values are positive and reflect each feature-map position's
+                relative contribution through the attention + residual block.
+        """
+        self._register_hook()
+        self.model.eval()
+        with torch.no_grad():
+            self.model(input_tensor)
+        self._remove_hook()
+
+        A     = self._attn_weights['A']           # (1, heads, seq, seq)
+        A_avg = A.mean(dim=1).squeeze(0)          # (seq, seq) — averaged over heads
+
+        seq_len = A_avg.shape[0]
+        I = torch.eye(seq_len)                    # identity for the residual path
+
+        # Mix attention with residual (equal weight), then row-normalise
+        R = 0.5 * I + 0.5 * A_avg
+        R = R / R.sum(dim=-1, keepdim=True)
+
+        # Column sum: total contribution of each feature-map position to all outputs
+        importance = R.sum(dim=0).numpy()         # (feat_seq_len,)
+        return importance
+
+    def generate_average_rollout(self, input_batch):
+        """
+        Average attention rollout importance over a batch of samples.
+
+        Args:
+            input_batch (Tensor): shape (N, seq_len). All from the same subgroup.
+
+        Returns:
+            avg_rollout (np.ndarray): shape (feat_seq_len,). Mean column importance
+                at feature-map resolution.
+        """
+        rollouts = []
+        print(f"Generating attention rollout for {input_batch.shape[0]} samples...")
+        for i in range(input_batch.shape[0]):
+            rollout = self.generate_rollout(input_batch[i:i+1])
+            rollouts.append(rollout)
+
+        return np.mean(rollouts, axis=0)          # (feat_seq_len,)
+
+
+#^ ------------------------------------------------------------------------------------------------------
+# * Plotting: Integrated Gradients
+#^ ------------------------------------------------------------------------------------------------------
+
+def plot_avg_ig_with_expt(xrd_expt, avg_ig, x_axis, x_units='2θ (degrees)',
+                          save_name='avg_ig_plot.png', legend_label='',
+                          mode='positive', title=None):
+    """
+    Overlay Integrated Gradients attribution on the experimental XRD pattern.
+
+    Because IG operates at full input resolution, avg_ig and xrd_expt should
+    already have the same length — no upsampling artifacts arise.  A small
+    resize is applied as a safeguard if lengths differ.
+
+    Args:
+        xrd_expt (np.ndarray): shape (seq_len,). Scaled experimental pattern.
+        avg_ig (np.ndarray): shape (seq_len,). From IntegratedGradients.generate_average_ig().
+        x_axis (array-like): TOF or 2θ values corresponding to seq_len points.
+        x_units (str): x-axis label string.
+        save_name (str): Output file path (PNG recommended).
+        legend_label (str): Legend entry for the pattern line.
+        mode (str):
+            'positive' — ReLU(IG) then normalise to [0, 1].  Jet colormap.
+                         Shows only features that *support* the classification.
+                         Directly comparable to GradCAM visualisations.
+            'signed'   — Divide by max(|IG|), retain sign.  Coolwarm colormap.
+                         Red = supports classification, Blue = opposes it.
+        title (str | None): Optional plot title.
+    """
+    avg_ig   = np.asarray(avg_ig).squeeze()
+    xrd_expt = np.asarray(xrd_expt).squeeze()
+    x_axis   = np.asarray(x_axis)
+
+    rcParams.update({
+        # "text.usetex": False,
+        "font.family": "serif",
+        "font.size": 16,
+        "axes.labelsize": 16,
+        "axes.titlesize": 14,
+        "legend.fontsize": 16,
+        "xtick.labelsize": 16,
+        "ytick.labelsize": 16,
+        "xtick.major.size": 10,
+        "ytick.major.size": 10,
+        "figure.dpi": 600,
+        "savefig.bbox": "tight"
+    })
+
+    # Guard: resize if lengths differ (IG should match xrd_expt, but be safe)
+    if avg_ig.shape[0] != xrd_expt.shape[0]:
+        print(f"Resizing IG from {avg_ig.shape[0]} to {xrd_expt.shape[0]}")
+        avg_ig = np.asarray(zoom(avg_ig, zoom=xrd_expt.shape[0] / avg_ig.shape[0]))
+    if x_axis.shape[0] != xrd_expt.shape[0]:
+        x_axis = np.asarray(zoom(x_axis, zoom=xrd_expt.shape[0] / x_axis.shape[0]))
+
+    if mode == 'positive':
+        display = np.maximum(avg_ig, 0.0)
+        display = (display - display.min()) / (display.max() + 1e-8)
+        cmap = 'jet'
+        vmin, vmax = 0.0, 1.0
+    elif mode == 'signed':
+        absmax  = np.abs(avg_ig).max() + 1e-8
+        display = avg_ig / absmax               # normalised to [-1, 1]
+        cmap = 'coolwarm'
+        vmin, vmax = -1.0, 1.0
+    else:
+        raise ValueError(f"Unknown mode '{mode}'. Use 'positive' or 'signed'.")
+
+    _, ax = plt.subplots(figsize=(12, 6), dpi=600)
+    ax.imshow(
+        display[np.newaxis, :],
+        extent=(x_axis[0], x_axis[-1], float(xrd_expt.min()), float(xrd_expt.max())),
+        cmap=cmap, aspect='auto', alpha=0.8, origin='lower',
+        vmin=vmin, vmax=vmax
+    )
+    ax.plot(x_axis, xrd_expt, color='black', linewidth=1.5, label=legend_label)
+    if title:
+        ax.set_title(title, fontsize=14)
+    ax.set_xlabel(x_units, fontsize=14)
+    ax.set_ylabel('Intensity A.U.', fontsize=14)
+    ax.legend()
+    plt.savefig(save_name, dpi=600, bbox_inches='tight')
+    # plt.show()
+    plt.close()
+
+
+#^ ------------------------------------------------------------------------------------------------------
+# * Plotting: Attention Rollout
+#^ ------------------------------------------------------------------------------------------------------
+
+def plot_avg_rollout_with_expt(xrd_expt, avg_rollout, x_axis, x_units='2θ (degrees)',
+                               save_name='avg_rollout_plot.png', legend_label='',
+                               title=None):
+    """
+    Overlay Attention Rollout importance on the experimental XRD pattern.
+
+    Attention rollout is at feature-map resolution (~L/8 of the raw input due
+    to the two conv+pool stages).  This function *upsamples the rollout* to the
+    full input length via scipy.ndimage.zoom so the experimental pattern is
+    displayed at its native resolution (contrast with plot_avg_cam_with_expt_zoom_in
+    which downsamples the experimental data instead).
+
+    Note: the upsampled rollout will appear smooth.  This smoothness reflects the
+    method's fundamental resolution limit (~L/8), not an artifact of this function.
+
+    Args:
+        xrd_expt (np.ndarray): shape (seq_len,). Scaled experimental pattern.
+        avg_rollout (np.ndarray): shape (feat_seq_len,). From AttentionRollout.generate_average_rollout().
+        x_axis (array-like): TOF or 2θ values of length seq_len.
+        x_units (str): x-axis label string.
+        save_name (str): Output file path.
+        legend_label (str): Legend entry for the pattern line.
+        title (str | None): Optional plot title.
+    """
+    avg_rollout = np.asarray(avg_rollout).squeeze()
+    xrd_expt   = np.asarray(xrd_expt).squeeze()
+    x_axis     = np.asarray(x_axis)
+
+    rcParams.update({
+        "text.usetex": False,
+        "font.family": "serif",
+        "font.size": 16,
+        "axes.labelsize": 16,
+        "axes.titlesize": 14,
+        "legend.fontsize": 16,
+        "xtick.labelsize": 16,
+        "ytick.labelsize": 16,
+        "xtick.major.size": 10,
+        "ytick.major.size": 10,
+        "figure.dpi": 600,
+        "savefig.bbox": "tight"
+    })
+
+    # Upsample rollout to match the experimental pattern length
+    if avg_rollout.shape[0] != xrd_expt.shape[0]:
+        print(f"Upsampling rollout from length {avg_rollout.shape[0]} to {xrd_expt.shape[0]}")
+        avg_rollout = np.asarray(zoom(avg_rollout, zoom=xrd_expt.shape[0] / avg_rollout.shape[0]))
+
+    # Normalise to [0, 1]
+    avg_rollout = (avg_rollout - avg_rollout.min()) / (avg_rollout.max() + 1e-8)
+
+    _, ax = plt.subplots(figsize=(12, 6), dpi=600)
+    ax.imshow(
+        avg_rollout[np.newaxis, :],
+        extent=(x_axis[0], x_axis[-1], float(xrd_expt.min()), float(xrd_expt.max())),
+        cmap='jet', aspect='auto', alpha=0.8, origin='lower',
+        vmin=0.0, vmax=1.0
+    )
+    ax.plot(x_axis, xrd_expt, color='black', linewidth=1.5, label=legend_label)
+    if title:
+        ax.set_title(title, fontsize=14)
+    ax.set_xlabel(x_units, fontsize=14)
+    ax.set_ylabel('Intensity A.U.', fontsize=14)
+    ax.legend()
+    plt.savefig(save_name, dpi=600, bbox_inches='tight')
+    # plt.show()
+    plt.close()
 
 
 #^ ------------------------------------------------------------------------------------------------------

@@ -202,6 +202,12 @@ cam_x_units_label = config_dict.get('cam_x_units_label', 'TOF (μs)')
 # cam_legend_label = r'PbZr$_{0.1}$Ti$_{0.9}$O$_{3}$'  # legend label for CAM plot
 cam_legend_label = config_dict.get('cam_legend_label', f'{material_name} {phase_name}')
 
+#* Create Integrated Gradients Control
+create_integrated_gradients = config_dict.get('create_integrated_gradients', False)
+
+#* Create Attention Rollout Control
+create_attention_rollout = config_dict.get('create_attention_rollout', False)
+
 # ground_truth_cif = '0088' # bso_alpha
 # ground_truth_cif = '0152' # bso_beta
 # ground_truth_cif = '0032' # wo3_1085K   
@@ -712,8 +718,9 @@ print(runtime)
 # #* Run XsymNet against experimental data
 # #============================================================================================   
 
-if classify_experiment == True:
-    number_of_top_results = min(10, num_classes)
+if classify_experiment:
+    #! changed to 5 from 10 for more focused results - can adjust as needed
+    number_of_top_results = min(5, num_classes)
     param_weight = list(range(number_of_top_results, 0, -1))  
 
     # Dictionaries to store confidence metrics
@@ -831,15 +838,13 @@ if classify_experiment == True:
         
 
 # #^============================================================================================
-# #* Create CAM (Class Activation Map)
+# #* Create CAM (Class Activation Map) - Integrated Gradients - Attention Rollout - Visualizations for experimental data
 # #^============================================================================================   
-if create_cam: 
+if create_cam or create_integrated_gradients or create_attention_rollout: 
 
-    # Initialize GradCAM
-    # target_layer = model.module.attention if isinstance(model, torch.nn.DataParallel) else model.attention
-    target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2
-    grad_cam = xsym.GradCAM(model, target_layer=target_layer)
-
+    #! manual choice of predicted subgroups in line below
+    # predicted_subgroups = ['0152', '0001', '0088', '0547']
+    # predicted_subgroups = ['0152']
     for tsg in predicted_subgroups:
         #^ get cam data, raise error if not found, and slice to region of interest
         cam_data_path = ''
@@ -847,14 +852,14 @@ if create_cam:
             if tsg in data_files[i]:
                 cam_data_path = data_files[i]
                 break
-        if create_cam and cam_data_path == '':
+        if cam_data_path == '':
             raise ValueError(f"Subgroup {tsg} not found in data files. Please check the subgroup name or data files.")
 
         cam_data = torch.load(cam_data_path)
         cam_data = cam_data.unsqueeze(0) if cam_data.ndim == 1 else cam_data  # Ensure it's 2D
         cam_data = cam_data[:, data_start_index:data_end_index]  # Slice to region of interest
 
-        print(f'Scaling CAM data: Test Max is max of {tsg} training data\n')
+        print(f'\nScaling CAM data: Test Max is max of {tsg} training data\n')
         X_train_dummy, cam_data_scaled, X_expt_dummy = funcs.MinMaxScale_2d(X_train_unscaled, cam_data, X_expt_unscaled, scale=scale_data)
         cam_data_scaled = torch.Tensor(cam_data_scaled).to(device)
 
@@ -862,21 +867,169 @@ if create_cam:
         input_batch = cam_data_scaled  # shape: (N, seq_len)
         target_class = subgroup_to_label.get(tsg)  # Convert subgroup name to label index
 
-        cam_save_name = f'{cam_save_basename}_{tsg}.png'
+        if create_cam:
+            # Initialize GradCAM
+            target_layer = model.module.conv2 if isinstance(model, torch.nn.DataParallel) else model.conv2
+            grad_cam = xsym.GradCAM(model, target_layer=target_layer)
+            avg_cam_save_name = f'{cam_save_basename}_{tsg}_CAM_avg.png'
+            expt_cam_save_name = f'{cam_save_basename}_{tsg}_CAM_expt.png'
 
-        # Compute average CAM
-        avg_cam = grad_cam.generate_average_cam(input_batch, target_class)
-        # Plot over experimental pattern
-        # xsym.plot_avg_cam_with_expt(xrd_expt=X_expt.cpu().numpy(), 
-        #                             avg_cam=avg_cam, 
-        #                             x_axis=expt_x_axis, 
-        #                             x_units = cam_x_units_label, 
-        #                             save_name= cam_save_name, 
-        #                             legend_label = cam_legend_label)
+            # Compute average CAM
+            avg_cam = grad_cam.generate_average_cam(input_batch, target_class)
+            
+            expt_cam = grad_cam.generate_average_cam(X_expt_dummy, target_class)
+
+            # Plot over experimental pattern        
+            xsym.plot_avg_cam_with_expt_zoom_in(xrd_expt=X_expt.cpu().numpy(), 
+                                        avg_cam=avg_cam, 
+                                        x_axis=expt_x_axis, 
+                                        x_units = cam_x_units_label, 
+                                        save_name= avg_cam_save_name, 
+                                        legend_label = cam_legend_label)
+            
+            xsym.plot_avg_cam_with_expt_zoom_in(xrd_expt=X_expt.cpu().numpy(), 
+                                        avg_cam=expt_cam, 
+                                        x_axis=expt_x_axis, 
+                                        x_units = cam_x_units_label, 
+                                        save_name= expt_cam_save_name, 
+                                        legend_label = cam_legend_label)
         
-        xsym.plot_avg_cam_with_expt_zoom_in(xrd_expt=X_expt.cpu().numpy(), 
-                                    avg_cam=avg_cam, 
-                                    x_axis=expt_x_axis, 
-                                    x_units = cam_x_units_label, 
-                                    save_name= cam_save_name, 
-                                    legend_label = cam_legend_label)
+        if create_integrated_gradients:
+            # Initialize Integrated Gradients
+            intgrad = xsym.IntegratedGradients(model)
+            expt_intgrad_save_name = f'{cam_save_basename}_{tsg}_intgrad_expt.png'
+            avg_intgrad_save_name = f'{cam_save_basename}_{tsg}_intgrad_avg.png'
+
+            print(f'\nGenerating Integrated Gradients for subgroup {tsg} (class {target_class})\n')
+            expt_intgrad = intgrad.generate_ig(X_expt_dummy, target_class) 
+            print(f'\nGenerating Average Integrated Gradients for subgroup {tsg} (class {target_class})\n')
+            avg_intgrad = intgrad.generate_average_ig(input_batch, target_class)
+
+            xsym.plot_avg_ig_with_expt(X_expt_dummy, expt_intgrad, expt_x_axis, x_units=cam_x_units_label,
+                            save_name=expt_intgrad_save_name, legend_label=cam_legend_label,
+                            mode='positive', title=f'Integrated Gradients - {tsg} (Expt)')
+
+            xsym.plot_avg_ig_with_expt(X_expt_dummy, avg_intgrad, expt_x_axis, x_units=cam_x_units_label,
+                            save_name=avg_intgrad_save_name, legend_label=cam_legend_label,
+                            mode='positive', title=f'Integrated Gradients - {tsg} (Avg)')
+            
+        if create_attention_rollout:
+            # Initialize Attention Rollout
+            attn_rollout = xsym.AttentionRollout(model)
+            expt_rollout_save_name = f'{cam_save_basename}_{tsg}_rollout_expt.png'
+            avg_rollout_save_name = f'{cam_save_basename}_{tsg}_rollout_avg.png'
+
+            print(f'\nGenerating Attention Rollout for experimental data targeting subgroup {tsg}\n')
+            expt_rollout = attn_rollout.generate_rollout(X_expt_dummy)
+            print(f'\nGenerating Average Attention Rollout for subgroup {tsg}\n')
+            avg_rollout = attn_rollout.generate_average_rollout(input_batch)
+
+            xsym.plot_avg_rollout_with_expt(X_expt_dummy.cpu().numpy(), expt_rollout, expt_x_axis,
+                                            x_units=cam_x_units_label,
+                                            save_name=expt_rollout_save_name,
+                                            legend_label=cam_legend_label,
+                                            title=f'Attention Rollout - {tsg} (Expt)')
+
+            xsym.plot_avg_rollout_with_expt(X_expt_dummy.cpu().numpy(), avg_rollout, expt_x_axis,
+                                            x_units=cam_x_units_label,
+                                            save_name=avg_rollout_save_name,
+                                            legend_label=cam_legend_label,
+                                            title=f'Attention Rollout - {tsg} (Avg)')
+
+# #^============================================================================================
+# #* Create Integrated Gradients 
+# #^============================================================================================   
+
+    
+
+#     #! manual choice of predicted subgroups in line below
+#     # predicted_subgroups = ['0152', '0001', '0088', '0547']
+#     # predicted_subgroups = ['0152']
+#     for tsg in predicted_subgroups:
+#         #^ get cam data, raise error if not found, and slice to region of interest
+#         cam_data_path = ''
+#         for i in range(len(data_files)):
+#             if tsg in data_files[i]:
+#                 cam_data_path = data_files[i]
+#                 break
+#         if create_cam and cam_data_path == '':
+#             raise ValueError(f"Subgroup {tsg} not found in data files. Please check the subgroup name or data files.")
+
+#         cam_data = torch.load(cam_data_path)
+#         cam_data = cam_data.unsqueeze(0) if cam_data.ndim == 1 else cam_data  # Ensure it's 2D
+#         cam_data = cam_data[:, data_start_index:data_end_index]  # Slice to region of interest
+
+#         print(f'\nScaling CAM data: Test Max is max of {tsg} training data\n')
+#         X_train_dummy, cam_data_scaled, X_expt_dummy = funcs.MinMaxScale_2d(X_train_unscaled, cam_data, X_expt_unscaled, scale=scale_data)
+#         cam_data_scaled = torch.Tensor(cam_data_scaled).to(device)
+
+#         # Subset training data for target class (e.g., class 5)
+#         input_batch = cam_data_scaled  # shape: (N, seq_len)
+#         target_class = subgroup_to_label.get(tsg)  # Convert subgroup name to label index
+
+#         expt_intgrad_save_name = f'{cam_save_basename}_{tsg}_intgrad_expt.png'
+#         avg_intgrad_save_name = f'{cam_save_basename}_{tsg}_intgrad_avg.png'
+
+#         print(f'\nGenerating Integrated Gradients for subgroup {tsg} (class {target_class})\n')
+#         expt_intgrad = intgrad.generate_ig(X_expt_dummy, target_class) 
+#         print(f'\nGenerating Average Integrated Gradients for subgroup {tsg} (class {target_class})\n')
+#         avg_intgrad = intgrad.generate_average_ig(input_batch, target_class)
+
+#         xsym.plot_avg_ig_with_expt(X_expt_dummy, expt_intgrad, expt_x_axis, x_units=cam_x_units_label,
+#                           save_name=expt_intgrad_save_name, legend_label=cam_legend_label,
+#                           mode='postive', title=f'Integrated Gradients - {tsg} (Expt)')
+
+#         xsym.plot_avg_ig_with_expt(X_expt_dummy, avg_intgrad, expt_x_axis, x_units=cam_x_units_label,
+#                           save_name=avg_intgrad_save_name, legend_label=cam_legend_label,
+#                           mode='positive', title=f'Integrated Gradients - {tsg} (Avg)')
+
+# #^============================================================================================
+# #* Create Attention Rollout
+# #^============================================================================================
+# if create_attention_rollout:
+#     attn_rollout = xsym.AttentionRollout(model)
+
+
+#     #! manual choice of predicted subgroups in line below
+#     # predicted_subgroups = ['0152', '0001', '0088', '0547']
+#     # predicted_subgroups = ['0152']
+#     for tsg in predicted_subgroups:
+#         #^ get rollout data, raise error if not found, and slice to region of interest
+#         rollout_data_path = ''
+#         for i in range(len(data_files)):
+#             if tsg in data_files[i]:
+#                 rollout_data_path = data_files[i]
+#                 break
+#         if create_attention_rollout and rollout_data_path == '':
+#             raise ValueError(f"Subgroup {tsg} not found in data files. Please check the subgroup name or data files.")
+
+#         rollout_data = torch.load(rollout_data_path)
+#         rollout_data = rollout_data.unsqueeze(0) if rollout_data.ndim == 1 else rollout_data  # Ensure it's 2D
+#         rollout_data = rollout_data[:, data_start_index:data_end_index]  # Slice to region of interest
+
+#         print(f'\nScaling Rollout data: Test Max is max of {tsg} training data\n')
+#         X_train_dummy, rollout_data_scaled, X_expt_dummy = funcs.MinMaxScale_2d(X_train_unscaled, rollout_data, X_expt_unscaled, scale=scale_data)
+#         rollout_data_scaled = torch.Tensor(rollout_data_scaled).to(device)
+
+#         # Subset training data for target class
+#         input_batch = rollout_data_scaled  # shape: (N, seq_len)
+
+#         expt_rollout_save_name = f'{cam_save_basename}_{tsg}_rollout_expt.png'
+#         avg_rollout_save_name = f'{cam_save_basename}_{tsg}_rollout_avg.png'
+
+#         print(f'\nGenerating Attention Rollout for experimental data targeting subgroup {tsg}\n')
+#         expt_rollout = attn_rollout.generate_rollout(X_expt_dummy)
+#         print(f'\nGenerating Average Attention Rollout for subgroup {tsg}\n')
+#         avg_rollout = attn_rollout.generate_average_rollout(input_batch)
+
+#         xsym.plot_avg_rollout_with_expt(X_expt_dummy.cpu().numpy(), expt_rollout, expt_x_axis,
+#                                         x_units=cam_x_units_label,
+#                                         save_name=expt_rollout_save_name,
+#                                         legend_label=cam_legend_label,
+#                                         title=f'Attention Rollout - {tsg} (Expt)')
+
+#         xsym.plot_avg_rollout_with_expt(X_expt_dummy.cpu().numpy(), avg_rollout, expt_x_axis,
+#                                         x_units=cam_x_units_label,
+#                                         save_name=avg_rollout_save_name,
+#                                         legend_label=cam_legend_label,
+#                                         title=f'Attention Rollout - {tsg} (Avg)')
