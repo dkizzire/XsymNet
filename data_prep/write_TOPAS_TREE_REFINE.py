@@ -2,7 +2,7 @@ import os
 import glob
 import numpy as np
 from pathlib import Path, PureWindowsPath
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 
 
 def main():
@@ -31,10 +31,10 @@ def main():
     xdd_lines = funcs.xdd(xdd_winpath)
 
     # ----- generate instrument specific lines -----
-    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
-    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', instrument_file))
+    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', peakshape_file))
     if use_custom_macros:
-        macro_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', macro_file))
+        macro_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', macro_file))
         
 
     # paths to all cif and topas_str files

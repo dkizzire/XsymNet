@@ -7,20 +7,20 @@ This system allows you to manage training configurations through text files rath
 
 ### Basic Command
 ```bash
-python main_script_updated.py <CONFIG_FILE> <SEED>
+python -m training.xsymnet_bragg_seed_input <CONFIG_FILE> <SEED>
 ```
 
 ### Examples
 ```bash
 # Train WO3 at 1043K with seed 48
-python main_script_updated.py config_wo3_1043K.txt 48
+python -m training.xsymnet_bragg_seed_input config_wo3_1043K.txt 48
 
 # Train BSO alpha phase with seed 123
-python main_script_updated.py config_bso_alpha.txt 123
+python -m training.xsymnet_bragg_seed_input config_bso_alpha.txt 123
 
 # Use different seeds for reproducibility testing
-python main_script_updated.py config_wo3_1043K.txt 42
-python main_script_updated.py config_wo3_1043K.txt 100
+python -m training.xsymnet_bragg_seed_input config_wo3_1043K.txt 42
+python -m training.xsymnet_bragg_seed_input config_wo3_1043K.txt 100
 ```
 
 ## Configuration File Format
@@ -38,21 +38,6 @@ python main_script_updated.py config_wo3_1043K.txt 100
 material_name = wo3
 phase_name = 1043K
 cam_x_units_label = TOF (μs)
-```
-
-#### Raw Strings (preserves backslashes and special characters)
-Use `r''` or `r""` prefix for LaTeX notation, regex patterns, or Windows paths:
-```
-# LaTeX notation for matplotlib legends
-cam_legend_label = r'PbZr$_{0.1}$Ti$_{0.9}$O$_{3}$'
-cam_legend_label = r'α-BiSn$_{2}$O$_{7}$'
-cam_x_units_label = r'TOF ($\mu$s)'
-
-# Windows paths (though forward slashes work everywhere)
-path_to_data = r'C:\Users\Data\experiments'
-
-# Regular expressions
-file_pattern = r'\d{4}_sample_\w+\.dat'
 ```
 
 #### Numbers (integers and floats)
@@ -179,7 +164,7 @@ do_zscore = True
 5. **Batch experiments**: Use shell scripts to run multiple configurations:
    ```bash
    for seed in 42 48 123 456; do
-       python main_script_updated.py config_wo3_1043K.txt $seed
+       python -m training.xsymnet_bragg_seed_input config_wo3_1043K.txt $seed
    done
    ```
 

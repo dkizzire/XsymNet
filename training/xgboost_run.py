@@ -15,12 +15,12 @@ from sklearn.preprocessing import MaxAbsScaler, StandardScaler, QuantileTransfor
 from collections import OrderedDict, defaultdict
 import matplotlib.pyplot as plt
 
-import utility_functions as util
-import xsymnet_funcs as funcs
-import xsymnet_classes as xsym
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
+from xsymnet import xsymnet_classes as xsym
 
 # import xgboost as xgb
-import xgboost_class as xgbc
+from xsymnet import xgboost_class as xgbc
 import cupy as cp
 
 

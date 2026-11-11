@@ -1,6 +1,6 @@
 import os 
 import glob
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 import pandas as pd
 
 cwd = os.getcwd()

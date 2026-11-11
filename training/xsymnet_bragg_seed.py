@@ -74,9 +74,9 @@ from sklearn.metrics import f1_score, multilabel_confusion_matrix, precision_rec
 from collections import OrderedDict, defaultdict
 import matplotlib.pyplot as plt
 
-import utility_functions as util
-import xsymnet_funcs as funcs
-import xsymnet_classes as xsym
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
+from xsymnet import xsymnet_classes as xsym
 
 #============================================================================================
 # Global timing, cwd, set device

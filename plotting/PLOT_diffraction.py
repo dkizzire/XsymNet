@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-import utility_functions as util
+from io_utils import utility_functions as util
 
 
 rcParams.update({

@@ -3,8 +3,8 @@ import glob
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-import utility_functions as util
-import xsymnet_funcs as funcs
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
 
 
 rcParams.update({

@@ -1,7 +1,7 @@
 import os
 import glob
 import numpy as np
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 
 
 cwd = os.getcwd()

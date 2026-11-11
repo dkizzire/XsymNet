@@ -9,9 +9,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from collections import OrderedDict, defaultdict
 
-import utility_functions as util
-import xsymnet_funcs as funcs
-import xsymnet_classes as xsym
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
+from xsymnet import xsymnet_classes as xsym
 
 import optuna
 

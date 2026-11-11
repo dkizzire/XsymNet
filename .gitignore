@@ -1,5 +1,6 @@
 __pycache__/
 .vscode/
+.pixi/
 *.pyc
 
 /alpha_beta_old

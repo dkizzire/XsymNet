@@ -2,8 +2,8 @@ import os
 import glob
 import numpy as np
 import math
-import write_TOPAS_funcs as funcs
-import utility_functions as util
+from data_prep import write_TOPAS_funcs as funcs
+from io_utils import utility_functions as util
 import time
 
 t0 = time.time()
