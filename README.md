@@ -269,6 +269,17 @@ the structure by real Rietveld refinement. (`write_TOPAS_ML_multiphase.py` and
 
 ---
 
+## License
+
+XSymNet © 2026 Dayton Kizzire, Yuanpeng Zhang, Maksim Eremenko and Matthew
+Tucker is licensed under the Creative Commons Attribution-NoDerivatives 4.0 International License
+(CC BY-ND 4.0). See the `LICENSE` file for the full legal text, or
+https://creativecommons.org/licenses/by-nd/4.0/
+
+You may view, download, share, and use (run) this software in its
+unmodified form, with attribution. You may **not** share modified or
+derivative versions of it.
+
 ## Notes
 
 - Run everything from the **repo root** (`pixi run ...` handles this).
