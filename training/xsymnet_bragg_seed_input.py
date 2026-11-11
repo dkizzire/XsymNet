@@ -84,14 +84,14 @@ from sklearn.metrics import f1_score, multilabel_confusion_matrix, precision_rec
 from collections import OrderedDict, defaultdict
 import matplotlib.pyplot as plt
 
-import utility_functions as util
-import xsymnet_funcs as funcs
-import xsymnet_classes as xsym
-import config_reader as config_reader
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
+from xsymnet import xsymnet_classes as xsym
+from io_utils import config_reader as config_reader
 # ====================================================================================
 # *** Import Configuration Reader ***
 # ====================================================================================
-from config_reader import read_config_file, apply_config_to_globals
+from io_utils.config_reader import read_config_file, apply_config_to_globals
 
 #============================================================================================
 # Global timing, cwd, set device

@@ -1,4 +1,4 @@
-import xsymnet_funcs as funcs
+from xsymnet import xsymnet_funcs as funcs
 import os
 import torch
 import glob

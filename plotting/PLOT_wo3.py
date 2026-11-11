@@ -4,8 +4,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
-import utility_functions as util
-import xsymnet_funcs as xf
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as xf
 
 rcParams.update({
     "text.usetex": False,  # Use True for LaTeX rendering if desired

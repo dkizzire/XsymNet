@@ -1,5 +1,5 @@
 import os
-import utility_functions as util
+from io_utils import utility_functions as util
 
 cwd = os.getcwd()
 

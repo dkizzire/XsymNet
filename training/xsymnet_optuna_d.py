@@ -25,9 +25,9 @@ from torch.utils.data import DataLoader
 from collections import OrderedDict, defaultdict
 from sklearn.metrics import f1_score, multilabel_confusion_matrix, precision_recall_fscore_support
 
-import utility_functions as util
-import xsymnet_funcs as funcs
-import xsymnet_classes_d as xsym
+from io_utils import utility_functions as util
+from xsymnet import xsymnet_funcs as funcs
+from xsymnet import xsymnet_classes_d as xsym
 
 import optuna
 import re  # for subgroup id parsing

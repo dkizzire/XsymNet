@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import glob
-import xsymnet_funcs as xf
+from xsymnet import xsymnet_funcs as xf
 
 cwd = os.getcwd()
 

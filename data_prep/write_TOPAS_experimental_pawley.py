@@ -1,7 +1,7 @@
 import os
 import glob
 from pathlib import Path, PureWindowsPath
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 
 
 def main():
@@ -62,8 +62,8 @@ def main():
     global_lines = funcs.global_parameters()
     xdd_lines = funcs.xdd(xdd_winpath)
     # ----- generate instrument specific lines -----
-    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
-    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', instrument_file))
+    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', peakshape_file))
 
     phase_lines = f'''
     hkl_Is

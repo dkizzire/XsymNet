@@ -1,7 +1,7 @@
 import os
 from glob import glob
 from pathlib import Path, PureWindowsPath
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
     use_custom_macros = True
     if use_custom_macros:
         custom_macros_file = 'nomad_bank_5_macros.txt'
-        custom_macros = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', custom_macros_file))
+        custom_macros = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', custom_macros_file))
     else:
         custom_macros = '\n'
 
@@ -53,7 +53,7 @@ def main():
     use_pre_xdd = True
     if use_pre_xdd:
         pre_xdd_file = 'nomad_bank_5_pre_xdd.txt'
-        pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', pre_xdd_file))
+        pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', pre_xdd_file))
     else:
         pre_xdd_lines = '\n'
 
@@ -94,8 +94,8 @@ def main():
     global_lines = funcs.global_parameters()
     
     # ----- generate instrument specific lines -----
-    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
-    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', instrument_file))
+    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', peakshape_file))
 
 
     # phase_lines = f'''

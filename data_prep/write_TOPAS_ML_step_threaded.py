@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 import random
 from pathlib import Path, PureWindowsPath
-import write_TOPAS_funcs as funcs
+from data_prep import write_TOPAS_funcs as funcs
 
 import threading
 import queue
@@ -33,8 +33,8 @@ def main():
     NUM_THREADS = 5                                 #^ default = 5; number of threads to launch to optimize scale or create randomstates
     material_name = 'pzt90'                           #^ name of your material
     phase_name = 'beta_8'                       
-    instrument_file = 'hrpd_beta.txt'                     #^ located in ./instrument_parameters
-    peakshape_file = 'hrpd_peak_type.txt'            #^ located in ./instrument_parameters
+    instrument_file = 'hrpd_beta.txt'                     #^ located in ./data_prep/instrument_parameters
+    peakshape_file = 'hrpd_peak_type.txt'            #^ located in ./data_prep/instrument_parameters
     number_of_random_states = 250                   #^ = 1 : Rietveld of whole subgroup tree;  = ~250-500 create randomstates for ML training 
     path_to_topas_directory = 'C:\TOPAS6'           #^ windows path to your TOPAS directory; should be 'C:\TOPAS#' 
     diffraction_type = 'neutron'                       #^ choices: neutron or xray
@@ -63,7 +63,7 @@ def main():
     use_custom_macros = False
     if use_custom_macros:
         custom_macros_file = 'powgen_macros.txt'
-        custom_macro_path = os.path.join(cwd, 'instrument_parameters', custom_macros_file) 
+        custom_macro_path = os.path.join(cwd, 'data_prep', 'instrument_parameters', custom_macros_file) 
         assert os.path.exists(custom_macro_path), f'Error: {custom_macro_path} does not exist. Please check the path to your custom macros file.'
         custom_macros = funcs.instrument_parameters(custom_macro_path)
     else:
@@ -73,9 +73,9 @@ def main():
     use_pre_xdd = False
     if use_pre_xdd:
         pre_xdd_file = 'nomad_bank_5_pre_xdd.txt'
-        pre_xdd_file_path = os.path.join(cwd, 'instrument_parameters', pre_xdd_file)
+        pre_xdd_file_path = os.path.join(cwd, 'data_prep', 'instrument_parameters', pre_xdd_file)
         assert os.path.exists(pre_xdd_file_path), f'Error: {pre_xdd_file_path} does not exist. Please check the path to your pre xdd file.'
-        pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', pre_xdd_file))
+        pre_xdd_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', pre_xdd_file))
     else:
         pre_xdd_lines = '\n'
 
@@ -171,12 +171,12 @@ def main():
     global_lines = funcs.global_parameters()
     xdd_lines = funcs.xdd(xdd_winpath)
     # ----- generate instrument specific lines -----
-    instrument_file_path = os.path.join(cwd, 'instrument_parameters', instrument_file)
+    instrument_file_path = os.path.join(cwd, 'data_prep', 'instrument_parameters', instrument_file)
     assert os.path.exists(instrument_file_path), f'Error: {instrument_file_path} does not exist. Please check the path to your instrument file.'
-    peakshape_file_path = os.path.join(cwd, 'instrument_parameters', peakshape_file)
+    peakshape_file_path = os.path.join(cwd, 'data_prep', 'instrument_parameters', peakshape_file)
     assert os.path.exists(peakshape_file_path), f'Error: {peakshape_file_path} does not exist. Please check the path to your peakshape file.'
-    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', instrument_file))
-    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'instrument_parameters', peakshape_file))
+    instrument_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', instrument_file))
+    peakshape_lines = funcs.instrument_parameters(os.path.join(cwd, 'data_prep', 'instrument_parameters', peakshape_file))
 
     
 

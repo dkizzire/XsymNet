@@ -1,0 +1,73 @@
+[workspace]
+name = "xsymnet"
+version = "0.1.0"
+description = "XSymNet: CNN classification of powder diffraction patterns into crystallographic subgroups, coupled with TOPAS refinement"
+channels = ["conda-forge", "pytorch", "nvidia"]
+platforms = ["win-64", "linux-64"]
+
+# ============================================================================
+# Core dependencies (both platforms)
+#   - Windows machine: data preparation (TOPAS input generation, tensor packing)
+#   - Linux GPU machine: training / prediction
+# ============================================================================
+[dependencies]
+python = "3.11.*"
+numpy = "*"
+pandas = "*"
+scipy = "*"
+scikit-learn = "*"
+matplotlib = "*"
+seaborn = "*"
+optuna = "*"
+xgboost = "*"
+joblib = "*"
+pytorch = ">=2"
+tk = "*"          # tkinter backend for plotting/interactive_plotter.py
+
+# CUDA-enabled PyTorch build (training machine). On a CPU-only Windows prep
+# machine this can be commented out to shrink the environment.
+pytorch-cuda = "12.4.*"
+
+# ----------------------------------------------------------------------------
+# Linux-only extras: multi-GPU XGBoost baseline (training/xgboost_run.py,
+# xsymnet/xgboost_class.py). cupy/dask-cuda require NVIDIA GPUs.
+# ----------------------------------------------------------------------------
+[target.linux-64.dependencies]
+cupy = "*"
+dask = "*"
+dask-cuda = "*"
+
+# ----------------------------------------------------------------------------
+# Optional feature: PDF calculation (data_prep/run_pdf_calc.py needs diffpy).
+# Install with:  pixi install -e pdf     /     pixi run -e pdf <task>
+# ----------------------------------------------------------------------------
+[feature.pdf.dependencies]
+"diffpy.structure" = "*"
+"diffpy.srfit" = "*"
+"diffpy.srreal" = "*"
+
+[environments]
+default = { features = [], solve-group = "default" }
+pdf = { features = ["pdf"], solve-group = "default" }
+
+# ============================================================================
+# Tasks — pixi runs them with the repo root as the working directory.
+# Extra arguments are appended, e.g.:
+#   pixi run train configs/config_wo3_1043K.txt 48
+# ============================================================================
+[tasks]
+# --- Data preparation (WINDOWS ONLY — requires a licensed TOPAS install) ---
+prep-p1 = "python -m data_prep.write_TOPAS_P1"
+gen-data = "python -m data_prep.write_TOPAS_ML_step_threaded"
+pawley = "python -m data_prep.write_TOPAS_experimental_pawley"
+multiphase = "python -m data_prep.write_TOPAS_ML_multiphase"
+tree-refine = "python -m data_prep.write_TOPAS_TREE_REFINE"
+rietveld = "python -m data_prep.write_TOPAS_rietveld"
+order-parameter = "python -m data_prep.write_TOPAS_OrderParameter"
+# --- Training / prediction (Linux GPU machine) ---
+train = "python -m training.xsymnet_bragg_seed_input"
+train-optuna = "python -m training.xsymnet_optuna"
+train-xgb = "python -m training.xgboost_run"
+metrics = "python -m training.metrics_on_top10"
+# --- Plotting / utilities ---
+plotter = "python -m plotting.interactive_plotter"
