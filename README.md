@@ -272,13 +272,14 @@ the structure by real Rietveld refinement. (`write_TOPAS_ML_multiphase.py` and
 ## License
 
 XSymNet © 2026 Dayton Kizzire, Yuanpeng Zhang, Maksim Eremenko and Matthew
-Tucker is licensed under the Creative Commons Attribution-NoDerivatives 4.0 International License
-(CC BY-ND 4.0). See the `LICENSE` file for the full legal text, or
-https://creativecommons.org/licenses/by-nd/4.0/
+Tucker is licensed under the GNU General Public License v3.0 (GPL-3.0).
+See the `LICENSE` file for the full legal text, or
+https://www.gnu.org/licenses/gpl-3.0.html
 
-You may view, download, share, and use (run) this software in its
-unmodified form, with attribution. You may **not** share modified or
-derivative versions of it.
+You may use, study, modify, and redistribute this software (including
+modified or derivative versions), provided that any distributed copies
+or derivative works are also licensed under the GPL-3.0 and that you
+make the corresponding source code available.
 
 ## Notes
 
